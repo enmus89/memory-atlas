@@ -16,7 +16,7 @@ Built with React 19, Vite, Tailwind, and `react-globe.gl`, with an Express serve
 | Map theme, feature toggles | `localStorage` — per-device display preferences only |
 | AI story polishing and quotes | Express server calling Gemini, behind a signed-in-user check |
 
-Every table has row level security keyed to `auth.uid()`, so one user can never read or write another's data — this is what makes it safe to ship the Supabase anon key in the browser bundle.
+Every table has row level security keyed to `auth.uid()`, so one user can never read or write another's data — this is what makes it safe to ship the Supabase publishable key in the browser bundle.
 
 ---
 
@@ -51,12 +51,14 @@ cp .env.example .env.local
 
 Fill in from **Supabase dashboard → Project Settings → API**:
 
-- `VITE_SUPABASE_URL` — your project URL
-- `VITE_SUPABASE_ANON_KEY` — the **anon** / publishable key
+- `VITE_SUPABASE_URL` — your project URL, from **Settings → Data API** (or the **Connect** button in the top bar)
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — from **Settings → API Keys**
+
+  Newer projects show a **publishable key** starting with `sb_publishable_`; older ones show an **anon public** key that looks like a JWT. Either works — `VITE_SUPABASE_ANON_KEY` is still accepted as an alias if you have the older kind.
 
 Optionally add `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey) to enable the AI writing features. Without it, those features fall back to canned text and everything else works normally.
 
-> **Never** put the Supabase `service_role` key in this project. It bypasses row level security entirely. Only the anon key belongs here.
+> **Never** put the Supabase **secret** key (`sb_secret_...`, or the legacy `service_role`) in this project. It bypasses row level security entirely, so it would void every access rule in `schema.sql`. Only the publishable/anon key belongs here.
 
 ### 5. Run it
 
@@ -87,7 +89,7 @@ The app is one Node process that serves both the API and the built client, so an
 | Start command | `npm start` |
 | Environment | `NODE_ENV=production` |
 
-Then add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and (optionally) `GEMINI_API_KEY` as environment variables in the host's dashboard.
+Then add `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and (optionally) `GEMINI_API_KEY` as environment variables in the host's dashboard.
 
 **Two things that catch people out:**
 

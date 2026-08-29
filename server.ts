@@ -14,7 +14,14 @@ const PORT = Number(process.env.PORT) || 3000;
 // The server accepts the same Supabase project the browser talks to. Either
 // naming works so one .env can serve both the client build and the server.
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+// "Publishable" is the current name for the browser-safe key; "anon" is the
+// legacy one. Accept either, under either prefix.
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;

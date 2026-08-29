@@ -74,7 +74,7 @@ export function App() {
     if (!isSupabaseConfigured) {
       setFatalError(
         'This app is not connected to a database yet. Set VITE_SUPABASE_URL and ' +
-          'VITE_SUPABASE_ANON_KEY, then reload — see README.md for the setup steps.'
+          'VITE_SUPABASE_PUBLISHABLE_KEY, then reload — see README.md for the setup steps.'
       );
       setStatus('signedOut');
       return;
