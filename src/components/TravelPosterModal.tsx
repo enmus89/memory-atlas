@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TravelMemory, CountryInfo, OptionalFeatures } from '../types';
 import { TravelStats } from '../utils/storage';
-import { apiFetch } from '../lib/supabase';
+import { generateQuote } from '../utils/ai';
 import { findCountry } from '../data/countries';
 import { 
   X, 
@@ -61,20 +61,14 @@ export function TravelPosterModal({
         return c?.name || code;
       });
 
-      const res = await apiFetch('/api/ai/generate-quote', {
-        method: 'POST',
-        body: JSON.stringify({
-          visitedCountries: visitedCountryNames,
-          homeCountry: 'Earth',
-          theme
-        })
+      const data = await generateQuote({
+        visitedCountries: visitedCountryNames,
+        homeCountry: 'Earth',
+        theme
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.quote) setPosterQuote(data.quote);
-        if (data.attribution) setQuoteAuthor(data.attribution);
-      }
+      if (data.quote) setPosterQuote(data.quote);
+      if (data.attribution) setQuoteAuthor(data.attribution);
     } catch (err) {
       console.error('Failed to generate AI quote:', err);
     } finally {

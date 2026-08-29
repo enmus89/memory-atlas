@@ -2,7 +2,7 @@
 
 A personal 3D memory atlas and travel diary — record visited countries, photos, stories, and journeys on an interactive globe and map.
 
-Built with React 19, Vite, Tailwind, and `react-globe.gl`, with an Express server for the AI features. Accounts, travel data, and photos live in [Supabase](https://supabase.com).
+Built with React 19, Vite, Tailwind, and `react-globe.gl`. It is a fully static site — accounts, travel data, photos, and the AI features all live in [Supabase](https://supabase.com), so there is no server to run or pay for.
 
 ---
 
@@ -14,9 +14,11 @@ Built with React 19, Vite, Tailwind, and `react-globe.gl`, with an Express serve
 | Trips, bucket list, pins | Supabase Postgres, one row per item, row level security scoped to the owner |
 | Photos | Supabase Storage, private bucket, served through short-lived signed URLs |
 | Map theme, feature toggles | `localStorage` — per-device display preferences only |
-| AI story polishing and quotes | Express server calling Gemini, behind a signed-in-user check |
+| AI story polishing and quotes | Supabase Edge Function calling Gemini; Supabase verifies the caller's session before it runs |
 
 Every table has row level security keyed to `auth.uid()`, so one user can never read or write another's data — this is what makes it safe to ship the Supabase publishable key in the browser bundle.
+
+The Gemini API key is the one credential that must never reach a browser. It lives in the Edge Function's secrets, which is why the AI features run there rather than in the client.
 
 ---
 
@@ -56,9 +58,9 @@ Fill in from **Supabase dashboard → Project Settings → API**:
 
   Newer projects show a **publishable key** starting with `sb_publishable_`; older ones show an **anon public** key that looks like a JWT. Either works — `VITE_SUPABASE_ANON_KEY` is still accepted as an alias if you have the older kind.
 
-Optionally add `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey) to enable the AI writing features. Without it, those features fall back to canned text and everything else works normally.
+The Gemini key does **not** go in this file any more — it belongs to the Edge Function (`supabase secrets set GEMINI_API_KEY=...`). Without it the AI features fall back to canned text and everything else works normally.
 
-`GEMINI_MODEL` is optional and defaults to `gemini-3.6-flash`. Google withdraws model ids over time — `gemini-2.5-flash` is already refused for newly created keys — and because the AI routes fall back to canned text on any error, a withdrawn model looks like the feature quietly doing nothing rather than an error. If the AI output ever goes generic, check the server logs for a `Using graceful fallback` warning and list what your key can reach:
+`GEMINI_MODEL` is an optional Edge Function secret and defaults to `gemini-3.6-flash`. Google withdraws model ids over time — `gemini-2.5-flash` is already refused for newly created keys — and because the AI routes fall back to canned text on any error, a withdrawn model looks like the feature quietly doing nothing rather than an error. If the AI output ever goes generic, check the server logs for a `Using graceful fallback` warning and list what your key can reach:
 
 ```bash
 curl -s https://generativelanguage.googleapis.com/v1beta/models \
@@ -77,36 +79,46 @@ npm run dev      # http://localhost:3000
 Other scripts:
 
 ```bash
-npm run build    # production client bundle + server
-npm start        # run the production build
+npm run build    # production build into dist/
+npm run preview  # serve the production build locally
 npm run lint     # typecheck with tsc
 ```
 
----
-
-## Deploying
-
-The app is one Node process that serves both the API and the built client, so any host that runs a Node web service works. [Render](https://render.com) and [Railway](https://railway.app) are the least fuss; both deploy straight from a GitHub repo.
-
-**Settings:**
-
-| Setting | Value |
-| --- | --- |
-| Build command | `npm install && npm run build` |
-| Start command | `npm start` |
-| Environment | `NODE_ENV=production` |
-
-Then add `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and (optionally) `GEMINI_API_KEY` as environment variables in the host's dashboard.
-
-**Two things that catch people out:**
-
-1. **`VITE_*` variables are read at build time, not run time.** Vite inlines them into the bundle during `npm run build`. If you add or change one, you must trigger a fresh build — restarting the service is not enough.
-
-2. **The port comes from the host.** The server reads `process.env.PORT` and falls back to 3000. Don't hardcode a port in your host's config.
-
-After the first deploy, add your deployed URL to Supabase under **Authentication → URL Configuration → Site URL** and **Redirect URLs**, so password reset and email confirmation links point back to the right place.
+The AI features call the deployed Edge Function even in local development, so they need the function deployed (see below) and an internet connection. Everything else works against your Supabase project directly.
 
 ---
+
+## Deploying to GitHub Pages
+
+The site is static, so GitHub Pages hosts it for free with no cold starts. A workflow in `.github/workflows/deploy.yml` builds and publishes on every push.
+
+**One-time setup:**
+
+1. **Deploy the Edge Function.** Install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), then from the repo root:
+
+   ```bash
+   supabase login
+   supabase link --project-ref <your-project-ref>
+   supabase functions deploy ai
+   supabase secrets set GEMINI_API_KEY=your-key-here
+   ```
+
+   `<your-project-ref>` is the subdomain of your Supabase URL. You can also create the function and set the secret from the dashboard under **Edge Functions**, if you would rather not install the CLI.
+
+2. **Add the build secrets.** In GitHub: **Settings → Secrets and variables → Actions → New repository secret**.
+
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+   These are needed because Vite inlines them at build time. Do **not** add the Gemini key here — it belongs only in the Edge Function's secrets.
+
+3. **Turn Pages on.** **Settings → Pages → Source: GitHub Actions**.
+
+4. Push, or run the workflow manually from the **Actions** tab. The site lands at `https://<your-username>.github.io/memory-atlas/`.
+
+5. **Point Supabase at it.** **Authentication → URL Configuration** → set **Site URL** and add a **Redirect URL** matching your Pages address, so password-reset links come back to the right place.
+
+The workflow fails the build if the bundle comes out with no Supabase URL in it, which is what happens if you deploy before adding the secrets in step 2.
 
 ## Backups
 

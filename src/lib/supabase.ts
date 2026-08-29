@@ -43,18 +43,3 @@ export async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
-
-/**
- * fetch() wrapper that attaches the caller's Supabase access token. The
- * server-side AI routes require it so the deployed URL cannot be used by
- * strangers to spend our Gemini quota.
- */
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = await getAccessToken();
-  const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  return fetch(path, { ...init, headers });
-}

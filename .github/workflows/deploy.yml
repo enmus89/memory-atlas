@@ -1,0 +1,84 @@
+# Build the app and publish it to GitHub Pages on every push to the default
+# branch.
+#
+# The two Supabase values are repository secrets, because Vite inlines them at
+# build time — they cannot be supplied later. Both are safe to ship in the
+# bundle: every table is protected by row level security, so the publishable
+# key grants access to nobody's data on its own. They are kept as secrets
+# rather than hardcoded only so the project can be re-pointed at a different
+# Supabase project without a code change.
+#
+# The Gemini key is deliberately absent. It lives in the Supabase Edge
+# Function's secrets, never in anything served to a browser.
+#
+# Set up once, in the repo:
+#   Settings -> Secrets and variables -> Actions -> New repository secret
+#     VITE_SUPABASE_URL
+#     VITE_SUPABASE_PUBLISHABLE_KEY
+#   Settings -> Pages -> Source: GitHub Actions
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [claude/app-assessment-deployment-vexbtg]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # Serve from https://<user>.github.io/<repo>/
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Fail if the build has no Supabase credentials
+        # Catches the common setup mistake — deploying before adding the
+        # repository secrets — which otherwise ships a site that loads to
+        # "not connected to a database".
+        run: |
+          if ! grep -rqs "supabase.co" dist/assets/*.js; then
+            echo "::error::No Supabase URL found in the built bundle."
+            echo "Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY under"
+            echo "Settings -> Secrets and variables -> Actions, then re-run."
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

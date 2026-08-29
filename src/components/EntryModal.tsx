@@ -38,7 +38,7 @@ import { TravelMemory, PhotoItem, WeatherType, CountryInfo, TravelExpense, Expen
 import { COUNTRIES_DATA, findCountry } from '../data/countries';
 import { COMMON_TRAVEL_TAGS } from '../data/demoMemories';
 import { uploadPhoto, deletePhotos } from '../utils/photos';
-import { apiFetch } from '../lib/supabase';
+import { enhanceStory, suggestInsights } from '../utils/ai';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -157,23 +157,15 @@ export const EntryModal: React.FC<EntryModalProps> = ({
     setAiStatusText('Polishing prose & crafting evocative imagery with Gemini...');
 
     try {
-      const res = await apiFetch('/api/ai/enhance-story', {
-        method: 'POST',
-        body: JSON.stringify({
-          notes,
-          title,
-          countryName: selectedCountryInfo?.name || 'World',
-          city,
-          tags,
-          style: aiStyle
-        })
+      const data = await enhanceStory({
+        notes,
+        title,
+        countryName: selectedCountryInfo?.name || 'World',
+        city,
+        tags,
+        style: aiStyle
       });
 
-      if (!res.ok) {
-        throw new Error('AI polishing service temporarily unavailable');
-      }
-
-      const data = await res.json();
       if (data.enhancedNotes) {
         setNotes(data.enhancedNotes);
       }
@@ -202,21 +194,14 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   const handleFetchLocalInsights = async () => {
     setIsFetchingInsights(true);
     try {
-      const res = await apiFetch('/api/ai/suggest-insights', {
-        method: 'POST',
-        body: JSON.stringify({
-          countryName: selectedCountryInfo?.name || 'World',
-          city: city || selectedCountryInfo?.capital
-        })
+      const data = await suggestInsights({
+        countryName: selectedCountryInfo?.name || 'World',
+        city: city || selectedCountryInfo?.capital
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setLocalInsights(data);
-        setShowInsightsModal(true);
-      }
+      setLocalInsights(data);
+      setShowInsightsModal(true);
     } catch (err) {
-      console.error(err);
+      onError(err instanceof Error ? err.message : 'Could not fetch local insights.');
     } finally {
       setIsFetchingInsights(false);
     }
