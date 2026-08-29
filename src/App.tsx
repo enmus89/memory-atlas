@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { 
-  AppView, 
-  TravelMemory, 
-  CountryInfo, 
-  FilterState, 
+import {
+  AppView,
+  TravelMemory,
+  CountryInfo,
+  FilterState,
   PhotoItem,
   MapTheme,
   UserProfile,
@@ -12,30 +12,36 @@ import {
   CityPin,
   OptionalFeatures
 } from './types';
-import { 
-  loadMemories, 
-  saveMemories, 
-  calculateStats, 
-  loadHomeCountryCode,
-  saveHomeCountryCode,
+import {
+  AtlasSnapshot,
+  loadMemories,
+  upsertMemory,
+  deleteMemory,
+  calculateStats,
   loadMapTheme,
   saveMapTheme,
   loadWishlist,
-  saveWishlist,
+  upsertWishlistItem,
+  deleteWishlistItem,
   loadCityPins,
-  saveCityPins,
+  upsertCityPin,
+  deleteCityPin,
   loadOptionalFeatures,
   saveOptionalFeatures,
-  exportMemoriesJSON, 
-  importMemoriesJSON, 
-  resetToDemoMemories, 
-  clearAllMemories 
+  exportMemoriesJSON,
+  importMemoriesJSON,
+  resetToDemoMemories,
+  clearAllMemories
 } from './utils/storage';
-import { 
-  getCurrentUser, 
-  setCurrentUser as setAuthCurrentUser 
+import {
+  fetchProfile,
+  getCurrentUser,
+  onAuthStateChange,
+  saveUserHomeCountry,
+  signOut
 } from './utils/auth';
-import { COUNTRIES_DATA, findCountry } from './data/countries';
+import { isSupabaseConfigured } from './lib/supabase';
+import { findCountry } from './data/countries';
 import { Navbar } from './components/Navbar';
 import { MapView } from './components/MapView';
 import { DiaryView } from './components/DiaryView';
@@ -48,27 +54,199 @@ import { PhotoLightbox } from './components/PhotoLightbox';
 import { AuthModal } from './components/AuthModal';
 import { TravelPosterModal } from './components/TravelPosterModal';
 import { CityPinModal } from './components/CityPinModal';
-import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Compass, Loader2 } from 'lucide-react';
 
+type ToastType = 'success' | 'info' | 'error';
+
+/**
+ * Session gate.
+ *
+ * Nothing renders until we know whether somebody is signed in, so the atlas
+ * below can treat `user` as guaranteed and never has to guard against a null
+ * account while loading data.
+ */
 export function App() {
-  const [currentUser, setCurrentUserState] = useState<UserProfile>(() => getCurrentUser());
+  const [status, setStatus] = useState<'loading' | 'signedOut' | 'signedIn'>('loading');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [fatalError, setFatalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setFatalError(
+        'This app is not connected to a database yet. Set VITE_SUPABASE_URL and ' +
+          'VITE_SUPABASE_ANON_KEY, then reload — see README.md for the setup steps.'
+      );
+      setStatus('signedOut');
+      return;
+    }
+
+    let cancelled = false;
+
+    getCurrentUser()
+      .then((user) => {
+        if (cancelled) return;
+        setCurrentUser(user);
+        setStatus(user ? 'signedIn' : 'signedOut');
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFatalError(err instanceof Error ? err.message : 'Could not reach the server.');
+        setStatus('signedOut');
+      });
+
+    // Keeps the app honest when the session ends in another tab, and picks up
+    // a password-reset redirect landing back on the page.
+    const unsubscribe = onAuthStateChange(async (authUser) => {
+      if (cancelled) return;
+      if (!authUser) {
+        setCurrentUser(null);
+        setStatus('signedOut');
+        return;
+      }
+      try {
+        const profile = await fetchProfile(authUser);
+        if (cancelled) return;
+        setCurrentUser(profile);
+        setStatus('signedIn');
+      } catch (err) {
+        if (cancelled) return;
+        setFatalError(err instanceof Error ? err.message : 'Could not load your profile.');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setCurrentUser(null);
+    setStatus('signedOut');
+  }, []);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Compass className="w-8 h-8 text-blue-600 animate-pulse" />
+          <span className="text-sm font-medium">Loading your atlas…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'signedOut' || !currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#eff6ff] via-[#f8f9fa] to-[#f1f5f9] flex items-center justify-center p-4">
+        {fatalError && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-lg">
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-2xl shadow-sm flex items-start gap-2.5 text-xs font-medium">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{fatalError}</span>
+            </div>
+          </div>
+        )}
+        <AuthModal
+          isOpen
+          dismissable={false}
+          onClose={() => undefined}
+          currentUser={null}
+          onAuthenticated={(user) => {
+            setCurrentUser(user);
+            setStatus('signedIn');
+          }}
+          onSignOut={handleSignOut}
+        />
+      </div>
+    );
+  }
+
+  // Remounting on account change guarantees no data from the previous user
+  // survives into the next session.
+  return <Atlas key={currentUser.id} user={currentUser} onUserUpdated={setCurrentUser} onSignOut={handleSignOut} />;
+}
+
+interface AtlasProps {
+  user: UserProfile;
+  onUserUpdated: (user: UserProfile) => void;
+  onSignOut: () => void;
+}
+
+function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Core Data States
-  const [memories, setMemories] = useState<TravelMemory[]>(() => loadMemories(currentUser.id));
-  const [wishlist, setWishlist] = useState<WishlistItem[]>(() => loadWishlist(currentUser.id));
-  const [cityPins, setCityPins] = useState<CityPin[]>(() => loadCityPins(currentUser.id));
-  const [homeCountryCode, setHomeCountryCodeState] = useState<string>(() => loadHomeCountryCode(currentUser.id));
+  // Core data, loaded from Supabase on mount.
+  const [memories, setMemories] = useState<TravelMemory[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [cityPins, setCityPins] = useState<CityPin[]>([]);
+  const [homeCountryCode, setHomeCountryCodeState] = useState<string>(user.homeCountryCode);
+  const [dataStatus, setDataStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [mapTheme, setMapThemeState] = useState<MapTheme>(() => loadMapTheme());
   const [activeView, setActiveView] = useState<AppView>('map');
   const [features, setFeatures] = useState<OptionalFeatures>(() => loadOptionalFeatures());
+
+  // Toast notification
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: ToastType } | null>(null);
+
+  const showToast = useCallback((text: string, type: ToastType = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), type === 'error' ? 5200 : 3200);
+  }, []);
+
+  /**
+   * Apply a change locally straight away, then write it to the database. If
+   * the write fails the local change is undone, so what is on screen always
+   * matches what is actually stored.
+   */
+  const persist = useCallback(
+    async (write: () => Promise<void>, rollback: () => void) => {
+      try {
+        await write();
+      } catch (err) {
+        rollback();
+        showToast(err instanceof Error ? err.message : 'Could not save your change.', 'error');
+      }
+    },
+    [showToast]
+  );
+
+  const loadAll = useCallback(async () => {
+    setDataStatus('loading');
+    setLoadError(null);
+    try {
+      const [loadedMemories, loadedWishlist, loadedPins] = await Promise.all([
+        loadMemories(user.id),
+        loadWishlist(user.id),
+        loadCityPins(user.id)
+      ]);
+      setMemories(loadedMemories);
+      setWishlist(loadedWishlist);
+      setCityPins(loadedPins);
+      setDataStatus('ready');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load your travel data.');
+      setDataStatus('error');
+    }
+  }, [user.id]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    setHomeCountryCodeState(user.homeCountryCode);
+  }, [user.homeCountryCode]);
 
   const handleToggleFeature = useCallback((key: keyof OptionalFeatures) => {
     setFeatures(prev => {
       const next = { ...prev, [key]: !prev[key] };
       saveOptionalFeatures(next);
       if (key === 'bucketList' && !next.bucketList) {
-        setActiveView(current => current === 'wishlist' ? 'map' : current);
+        setActiveView(current => (current === 'wishlist' ? 'map' : current));
       }
       return next;
     });
@@ -79,29 +257,25 @@ export function App() {
   const [isCityPinModalOpen, setIsCityPinModalOpen] = useState(false);
   const [editingPin, setEditingPin] = useState<CityPin | null>(null);
 
-  const handleUserChange = useCallback((newUser: UserProfile, message?: string) => {
-    setCurrentUserState(newUser);
-    const userMems = loadMemories(newUser.id);
-    const userWish = loadWishlist(newUser.id);
-    const userPins = loadCityPins(newUser.id);
-    const userHome = loadHomeCountryCode(newUser.id);
-    setMemories(userMems);
-    setWishlist(userWish);
-    setCityPins(userPins);
-    setHomeCountryCodeState(userHome);
-    if (message) {
-      showToast(message, 'success');
-    }
-  }, []);
-  
-  const handleSetHomeCountry = useCallback((code: string | null) => {
-    saveHomeCountryCode(code, currentUser.id);
-    setHomeCountryCodeState(code || '');
-    if (code) {
-      const country = findCountry(code);
-      showToast(`Home country set to ${country?.flag || ''} ${country?.name || code}`, 'success');
-    }
-  }, [currentUser.id]);
+  const handleSetHomeCountry = useCallback(
+    (code: string | null) => {
+      const previous = homeCountryCode;
+      const next = code || '';
+      setHomeCountryCodeState(next);
+      if (code) {
+        const country = findCountry(code);
+        showToast(`Home country set to ${country?.flag || ''} ${country?.name || code}`);
+      }
+      persist(
+        async () => {
+          await saveUserHomeCountry(code);
+          onUserUpdated({ ...user, homeCountryCode: (code || 'US').toUpperCase() });
+        },
+        () => setHomeCountryCodeState(previous)
+      );
+    },
+    [homeCountryCode, persist, showToast, user, onUserUpdated]
+  );
 
   const handleToggleMapTheme = useCallback(() => {
     setMapThemeState(prev => {
@@ -110,7 +284,7 @@ export function App() {
       return next;
     });
   }, []);
-  
+
   // Filter state
   const [filter, setFilter] = useState<FilterState>({
     search: '',
@@ -121,7 +295,7 @@ export function App() {
     favoriteOnly: false
   });
 
-  // Modal and Drawer states
+  // Modal and drawer states
   const [selectedDrawerCountry, setSelectedDrawerCountry] = useState<CountryInfo | null>(null);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<TravelMemory | null>(null);
@@ -131,30 +305,7 @@ export function App() {
   const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
   const [lightboxAllPhotos, setLightboxAllPhotos] = useState<PhotoItem[]>([]);
 
-  // Toast Notification
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
-
-  const showToast = useCallback((text: string, type: 'success' | 'info' = 'success') => {
-    setToastMessage({ text, type });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3200);
-  }, []);
-
-  // Save states to localStorage whenever data changes
-  useEffect(() => {
-    saveMemories(memories, currentUser.id);
-  }, [memories, currentUser.id]);
-
-  useEffect(() => {
-    saveWishlist(wishlist, currentUser.id);
-  }, [wishlist, currentUser.id]);
-
-  useEffect(() => {
-    saveCityPins(cityPins, currentUser.id);
-  }, [cityPins, currentUser.id]);
-
-  // Global Escape key handler to unselect everything & close any open dialogs/drawers/lightboxes
+  // Global Escape key handler to unselect everything & close any open dialogs
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -179,20 +330,20 @@ export function App() {
   // Derived statistics
   const stats = calculateStats(memories);
 
-  // Drawer memories
   const drawerMemories = selectedDrawerCountry
     ? memories.filter(m => m.countryCode.toUpperCase() === selectedDrawerCountry.code.toUpperCase())
     : [];
 
-  // Handlers for Map interactions
-  const handleSelectCountry = (country: CountryInfo, existingMemories: TravelMemory[]) => {
+  // Handlers for map interactions
+  const handleSelectCountry = (country: CountryInfo, _existingMemories: TravelMemory[]) => {
     setSelectedDrawerCountry(country);
   };
 
   const handleQuickMarkVisited = (country: CountryInfo) => {
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
     const newMem: TravelMemory = {
-      id: `mem-${Date.now()}`,
+      id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       countryCode: country.code.toUpperCase(),
       countryName: country.name,
       countryFlag: country.flag,
@@ -205,8 +356,8 @@ export function App() {
       weather: 'sunny',
       tags: ['Sightseeing'],
       photos: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: now,
+      updatedAt: now
     };
 
     setMemories(prev => [newMem, ...prev]);
@@ -217,6 +368,11 @@ export function App() {
       origin: { y: 0.7 },
       colors: ['#2563eb', '#3b82f6', '#60a5fa']
     });
+
+    persist(
+      () => upsertMemory(newMem, user.id),
+      () => setMemories(prev => prev.filter(m => m.id !== newMem.id))
+    );
   };
 
   const handleOpenNewEntryWithCountry = (country: CountryInfo) => {
@@ -238,23 +394,31 @@ export function App() {
   };
 
   const handleSaveMemory = (memoryData: Partial<TravelMemory>) => {
+    const now = new Date().toISOString();
+
     if (editingMemory) {
-      // Update existing
-      setMemories(prev => prev.map(m => {
-        if (m.id === editingMemory.id) {
-          return {
-            ...m,
-            ...memoryData,
-            updatedAt: Date.now()
-          } as TravelMemory;
-        }
-        return m;
-      }));
-      showToast(`Updated memoir: "${memoryData.title}"`);
+      const updated: TravelMemory = {
+        ...editingMemory,
+        ...memoryData,
+        updatedAt: now
+      } as TravelMemory;
+
+      const previous = memories;
+      // A wishlist item converted to a trip arrives here as an "edit" of a
+      // memory that was never stored, so fall back to appending it.
+      setMemories(prev =>
+        prev.some(m => m.id === updated.id)
+          ? prev.map(m => (m.id === updated.id ? updated : m))
+          : [updated, ...prev]
+      );
+      showToast(`Updated memoir: "${updated.title}"`);
+      persist(
+        () => upsertMemory(updated, user.id),
+        () => setMemories(previous)
+      );
     } else {
-      // Create new
       const newMemory: TravelMemory = {
-        id: `memory-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         countryCode: (memoryData.countryCode || 'FR').toUpperCase(),
         countryName: memoryData.countryName || 'Unknown',
         countryFlag: memoryData.countryFlag || '🌍',
@@ -272,8 +436,8 @@ export function App() {
         tags: memoryData.tags || [],
         photos: memoryData.photos || [],
         expenses: memoryData.expenses || [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
       };
 
       setMemories(prev => [newMemory, ...prev]);
@@ -284,6 +448,10 @@ export function App() {
         origin: { y: 0.6 },
         colors: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
       });
+      persist(
+        () => upsertMemory(newMemory, user.id),
+        () => setMemories(prev => prev.filter(m => m.id !== newMemory.id))
+      );
     }
 
     setIsEntryModalOpen(false);
@@ -296,99 +464,118 @@ export function App() {
     if (!memoryToDelete) return;
 
     if (window.confirm(`Are you sure you want to remove the journey "${memoryToDelete.title}"?`)) {
+      const previous = memories;
       setMemories(prev => prev.filter(m => m.id !== memoryId));
       showToast(`Removed "${memoryToDelete.title}"`, 'info');
+      persist(
+        () => deleteMemory(memoryToDelete, user.id),
+        () => setMemories(previous)
+      );
     }
   };
 
   const handleToggleFavorite = (memoryId: string) => {
-    setMemories(prev => prev.map(m => {
-      if (m.id === memoryId) {
-        const nextFav = !m.isFavorite;
-        showToast(nextFav ? `Starred as favorite: "${m.title}"` : `Removed favorite`);
-        return {
-          ...m,
-          isFavorite: nextFav,
-          updatedAt: Date.now()
-        };
-      }
-      return m;
-    }));
+    const target = memories.find(m => m.id === memoryId);
+    if (!target) return;
+
+    const updated: TravelMemory = {
+      ...target,
+      isFavorite: !target.isFavorite,
+      updatedAt: new Date().toISOString()
+    };
+
+    setMemories(prev => prev.map(m => (m.id === memoryId ? updated : m)));
+    showToast(updated.isFavorite ? `Starred as favorite: "${target.title}"` : 'Removed favorite');
+    persist(
+      () => upsertMemory(updated, user.id),
+      () => setMemories(prev => prev.map(m => (m.id === memoryId ? target : m)))
+    );
   };
 
-  // Wishlist Actions
+  // Wishlist actions
   const handleAddWishlist = (item: Omit<WishlistItem, 'id' | 'createdAt'>) => {
     const newItem: WishlistItem = {
       ...item,
-      id: `wish-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: `wish-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       createdAt: new Date().toISOString()
     };
     setWishlist(prev => [newItem, ...prev]);
     showToast(`Added ${newItem.countryFlag} ${newItem.countryName} to Bucket List!`);
+    persist(
+      () => upsertWishlistItem(newItem, user.id),
+      () => setWishlist(prev => prev.filter(w => w.id !== newItem.id))
+    );
   };
 
   const handleToggleWishlistVisited = (id: string) => {
-    setWishlist(prev => prev.map(item => {
-      if (item.id === id) {
-        const next = !item.visited;
-        return { ...item, visited: next };
-      }
-      return item;
-    }));
+    const target = wishlist.find(w => w.id === id);
+    if (!target) return;
+
+    const updated: WishlistItem = { ...target, visited: !target.visited };
+    setWishlist(prev => prev.map(w => (w.id === id ? updated : w)));
+    persist(
+      () => upsertWishlistItem(updated, user.id),
+      () => setWishlist(prev => prev.map(w => (w.id === id ? target : w)))
+    );
   };
 
   const handleDeleteWishlist = (id: string) => {
+    const previous = wishlist;
     setWishlist(prev => prev.filter(item => item.id !== id));
     showToast('Removed from bucket list', 'info');
+    persist(
+      () => deleteWishlistItem(id, user.id),
+      () => setWishlist(previous)
+    );
   };
 
   const handleConvertWishlistToMemory = (item: WishlistItem) => {
     const country = findCountry(item.countryCode);
-    if (country) {
-      setModalInitialCountry(country);
-      setEditingMemory({
-        id: `memory-${Date.now()}`,
-        countryCode: item.countryCode.toUpperCase(),
-        countryName: item.countryName,
-        countryFlag: item.countryFlag,
-        continent: item.continent,
-        city: country.capital || item.countryName,
-        startDate: item.targetYear ? `${item.targetYear}-06-15` : new Date().toISOString().split('T')[0],
-        title: `Adventure in ${item.countryName}`,
-        notes: item.notes || `Fulfilled bucket list dream: trip to ${item.countryName}!`,
-        rating: 5,
-        weather: 'sunny',
-        tags: ['Bucket List Achieved'],
-        photos: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      setIsEntryModalOpen(true);
-      // Mark wishlist as visited
-      handleToggleWishlistVisited(item.id);
-    }
+    if (!country) return;
+
+    const now = new Date().toISOString();
+    setModalInitialCountry(country);
+    setEditingMemory({
+      id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      countryCode: item.countryCode.toUpperCase(),
+      countryName: item.countryName,
+      countryFlag: item.countryFlag,
+      continent: item.continent,
+      city: country.capital || item.countryName,
+      startDate: item.targetYear ? `${item.targetYear}-06-15` : new Date().toISOString().split('T')[0],
+      title: `Adventure in ${item.countryName}`,
+      notes: item.notes || `Fulfilled bucket list dream: trip to ${item.countryName}!`,
+      rating: 5,
+      weather: 'sunny',
+      tags: ['Bucket List Achieved'],
+      photos: [],
+      createdAt: now,
+      updatedAt: now
+    });
+    setIsEntryModalOpen(true);
+    handleToggleWishlistVisited(item.id);
   };
 
-  // City Pins Actions
+  // City pin actions
   const handleSavePin = (pin: CityPin) => {
-    setCityPins(prev => {
-      const exists = prev.some(p => p.id === pin.id);
-      if (exists) {
-        return prev.map(p => p.id === pin.id ? pin : p);
-      }
-      return [pin, ...prev];
-    });
+    const previous = cityPins;
+    setCityPins(prev => (prev.some(p => p.id === pin.id) ? prev.map(p => (p.id === pin.id ? pin : p)) : [pin, ...prev]));
     showToast(`📍 Pinned "${pin.name}" to atlas!`);
-    confetti({
-      particleCount: 35,
-      spread: 60,
-      origin: { y: 0.6 }
-    });
+    confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+    persist(
+      () => upsertCityPin(pin, user.id),
+      () => setCityPins(previous)
+    );
   };
 
   const handleDeletePin = (id: string) => {
+    const previous = cityPins;
     setCityPins(prev => prev.filter(p => p.id !== id));
     showToast('Removed pinned location', 'info');
+    persist(
+      () => deleteCityPin(id, user.id),
+      () => setCityPins(previous)
+    );
   };
 
   // Lightbox handlers
@@ -399,49 +586,89 @@ export function App() {
 
   // Backup and storage actions
   const handleExport = () => {
-    exportMemoriesJSON();
+    exportMemoriesJSON({ memories, wishlist, cityPins });
     showToast('Exported travel history backup file!');
+  };
+
+  const applySnapshot = (snapshot: AtlasSnapshot) => {
+    setMemories(snapshot.memories);
+    setWishlist(snapshot.wishlist);
+    setCityPins(snapshot.cityPins);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
-    const imported = await importMemoriesJSON(file);
-    if (imported) {
-      setMemories(imported.memories);
-      if (imported.wishlist) setWishlist(imported.wishlist);
-      if (imported.cityPins) setCityPins(imported.cityPins);
-      showToast(`Successfully imported travel records!`);
-    } else {
-      alert('Could not read JSON file. Please verify formatting.');
+    try {
+      const imported = await importMemoriesJSON(file, user.id);
+      if (imported) {
+        applySnapshot(imported);
+        showToast('Successfully imported travel records!');
+      } else {
+        showToast('Could not read that JSON file. Please check the format.', 'error');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Import failed.', 'error');
     }
-    e.target.value = '';
   };
 
-  const handleResetDemo = () => {
-    if (window.confirm('Reset all memoirs to the sample curated demo travel history?')) {
-      const demo = resetToDemoMemories();
-      setMemories(demo);
-      setWishlist(loadWishlist(currentUser.id));
-      setCityPins(loadCityPins(currentUser.id));
+  const handleResetDemo = async () => {
+    if (!window.confirm('Replace everything in your account with the sample curated demo travel history?')) return;
+    try {
+      applySnapshot(await resetToDemoMemories(user.id));
       showToast('Reloaded sample journey memoirs!');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load the demo data.', 'error');
     }
   };
 
-  const handleClearAll = () => {
-    if (window.confirm('Are you sure you want to wipe all travel records? This action cannot be undone.')) {
-      clearAllMemories();
+  const handleClearAll = async () => {
+    if (!window.confirm('Are you sure you want to wipe all travel records? This action cannot be undone.')) return;
+    try {
+      await clearAllMemories(user.id);
       setMemories([]);
       setWishlist([]);
       setCityPins([]);
       showToast('Cleared all travel history.', 'info');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not clear your history.', 'error');
     }
   };
 
+  if (dataStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <span className="text-sm font-medium">Loading your travel memories…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (dataStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
+          <h1 className="text-lg font-semibold text-[#1e293b]">We could not load your atlas</h1>
+          <p className="text-sm text-slate-600">{loadError}</p>
+          <button
+            onClick={loadAll}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] flex flex-col font-sans">
-      
+
       {/* Navigation Header */}
       <Navbar
         activeView={activeView}
@@ -449,7 +676,7 @@ export function App() {
         filter={filter}
         setFilter={setFilter}
         stats={stats}
-        currentUser={currentUser}
+        currentUser={user}
         wishlistCount={wishlist.filter(w => !w.visited).length}
         features={features}
         onToggleFeature={handleToggleFeature}
@@ -580,6 +807,8 @@ export function App() {
         initialMemory={editingMemory}
         initialCountry={modalInitialCountry}
         features={features}
+        userId={user.id}
+        onError={(message) => showToast(message, 'error')}
       />
 
       {/* Multi-City & Landmark Pinning Modal */}
@@ -604,12 +833,14 @@ export function App() {
         features={features}
       />
 
-      {/* Traveler Login & Profile Modal */}
+      {/* Traveler Profile Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
+        dismissable
         onClose={() => setIsAuthModalOpen(false)}
-        currentUser={currentUser}
-        onUserChange={handleUserChange}
+        currentUser={user}
+        onAuthenticated={() => setIsAuthModalOpen(false)}
+        onSignOut={onSignOut}
       />
 
       {/* High-Resolution Photo Lightbox */}
@@ -622,9 +853,19 @@ export function App() {
 
       {/* Toast Notification Banner */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <div className="bg-[#1e293b] text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700/60 flex items-center gap-2.5 text-xs font-medium">
-            <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-sm">
+          <div
+            className={`px-4 py-3 rounded-2xl shadow-xl border flex items-start gap-2.5 text-xs font-medium ${
+              toastMessage.type === 'error'
+                ? 'bg-red-600 text-white border-red-500'
+                : 'bg-[#1e293b] text-white border-slate-700/60'
+            }`}
+          >
+            {toastMessage.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+            )}
             <span>{toastMessage.text}</span>
           </div>
         </div>

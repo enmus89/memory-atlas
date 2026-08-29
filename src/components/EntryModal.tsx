@@ -37,6 +37,8 @@ import {
 import { TravelMemory, PhotoItem, WeatherType, CountryInfo, TravelExpense, ExpenseCategory, OptionalFeatures } from '../types';
 import { COUNTRIES_DATA, findCountry } from '../data/countries';
 import { PRESET_COUNTRY_PHOTOS, COMMON_TRAVEL_TAGS } from '../data/demoMemories';
+import { uploadPhoto, deletePhotos } from '../utils/photos';
+import { apiFetch } from '../lib/supabase';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -45,6 +47,9 @@ interface EntryModalProps {
   initialMemory?: TravelMemory | null;
   initialCountry?: CountryInfo | null;
   features?: OptionalFeatures;
+  /** Owner of any photos uploaded from this modal. */
+  userId: string;
+  onError: (message: string) => void;
 }
 
 export const EntryModal: React.FC<EntryModalProps> = ({
@@ -53,8 +58,13 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   onSave,
   initialMemory,
   initialCountry,
-  features
+  features,
+  userId,
+  onError
 }) => {
+  const [uploadingCount, setUploadingCount] = useState(0);
+  /** Storage paths to bin once the user commits this edit (not on cancel). */
+  const [pendingPhotoDeletions, setPendingPhotoDeletions] = useState<string[]>([]);
   const [countryCode, setCountryCode] = useState<string>('JP');
   const [city, setCity] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -179,9 +189,8 @@ export const EntryModal: React.FC<EntryModalProps> = ({
     setAiStatusText('Polishing prose & crafting evocative imagery with Gemini...');
 
     try {
-      const res = await fetch('/api/ai/enhance-story', {
+      const res = await apiFetch('/api/ai/enhance-story', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           notes,
           title,
@@ -225,9 +234,8 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   const handleFetchLocalInsights = async () => {
     setIsFetchingInsights(true);
     try {
-      const res = await fetch('/api/ai/suggest-insights', {
+      const res = await apiFetch('/api/ai/suggest-insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           countryName: selectedCountryInfo?.name || 'World',
           city: city || selectedCountryInfo?.capital
@@ -279,31 +287,40 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   );
 
   // Photo handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //
+  // Photos are downscaled and uploaded to private object storage as soon as
+  // they are picked. Only the storage path is kept on the memory, so a trip
+  // with twenty photos stays a small row rather than megabytes of base64.
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        if (dataUrl) {
-          setPhotos(prev => [
-            ...prev,
-            {
-              id: `photo-upload-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-              url: dataUrl,
-              caption: file.name.replace(/\.[^/.]+$/, ""),
-              location: city || selectedCountryInfo?.name,
-              isCover: prev.length === 0
-            }
-          ]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
+    const picked = Array.from(files);
     e.target.value = '';
+
+    setUploadingCount(count => count + picked.length);
+
+    for (const file of picked) {
+      const photoId = `photo-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        const { path, url } = await uploadPhoto(userId, file, photoId);
+        setPhotos(prev => [
+          ...prev,
+          {
+            id: photoId,
+            url,
+            path,
+            caption: file.name.replace(/\.[^/.]+$/, ''),
+            location: city || selectedCountryInfo?.name,
+            isCover: prev.length === 0
+          }
+        ]);
+      } catch (err) {
+        onError(err instanceof Error ? err.message : `Could not upload ${file.name}.`);
+      } finally {
+        setUploadingCount(count => Math.max(0, count - 1));
+      }
+    }
   };
 
   const handleAddCustomUrl = () => {
@@ -336,6 +353,21 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   };
 
   const handleDeletePhoto = (photoId: string) => {
+    const removed = photos.find(p => p.id === photoId);
+
+    if (removed?.path) {
+      const wasAlreadySaved = (initialMemory?.photos ?? []).some(p => p.id === photoId);
+      if (wasAlreadySaved) {
+        // The stored memory still points at this file, so the file can only go
+        // once the user commits the edit. Cancelling must leave it intact.
+        setPendingPhotoDeletions(prev => [...prev, removed.path as string]);
+      } else {
+        // Uploaded during this edit and never saved — safe to bin right away
+        // rather than leaving an orphan in the bucket.
+        void deletePhotos([removed.path]);
+      }
+    }
+
     setPhotos(prev => {
       const filtered = prev.filter(p => p.id !== photoId);
       if (filtered.length > 0 && !filtered.some(p => p.isCover)) {
@@ -369,6 +401,16 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !countryCode) return;
+    if (uploadingCount > 0) {
+      onError('Please wait for your photos to finish uploading.');
+      return;
+    }
+
+    // The edit is being committed, so photos the user removed can now go.
+    if (pendingPhotoDeletions.length > 0) {
+      void deletePhotos(pendingPhotoDeletions);
+      setPendingPhotoDeletions([]);
+    }
 
     onSave({
       countryCode: countryCode.toUpperCase(),
@@ -849,8 +891,14 @@ export const EntryModal: React.FC<EntryModalProps> = ({
             {/* Upload / Add Controls */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 rounded-2xl bg-slate-50 dark:bg-slate-800/40 cursor-pointer transition-all text-center">
-                <Upload className="w-5 h-5 text-blue-500 mb-1" />
-                <span className="text-xs font-semibold text-slate-900 dark:text-white">Upload Photos</span>
+                {uploadingCount > 0 ? (
+                  <Loader2 className="w-5 h-5 text-blue-500 mb-1 animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5 text-blue-500 mb-1" />
+                )}
+                <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                  {uploadingCount > 0 ? `Uploading ${uploadingCount}…` : 'Upload Photos'}
+                </span>
                 <span className="text-[10px] text-slate-500">Select images from your device</span>
                 <input
                   type="file"

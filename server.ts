@@ -1,11 +1,20 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Vite reads .env.local; load it here too so `npm run dev` picks up the
+// Gemini key from the same file the client uses. Platform-provided env vars
+// in production already win, since dotenv never overwrites what is set.
+dotenv.config({ path: ['.env.local', '.env'] });
 
 const PORT = Number(process.env.PORT) || 3000;
+
+// The server accepts the same Supabase project the browser talks to. Either
+// naming works so one .env can serve both the client build and the server.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -22,6 +31,50 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
+let authClient: SupabaseClient | null = null;
+function getAuthClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  if (!authClient) {
+    authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return authClient;
+}
+
+/**
+ * Gate the AI routes behind a valid Supabase session.
+ *
+ * Without this, the deployed URL is an open proxy to our Gemini key: anyone
+ * who finds it could spend the quota. The token is the same access token the
+ * browser already holds, sent as a bearer header.
+ */
+async function requireUser(req: Request, res: Response, next: NextFunction) {
+  const client = getAuthClient();
+  if (!client) {
+    return res.status(503).json({
+      error: 'AI features are unavailable: the server has no Supabase credentials configured.',
+    });
+  }
+
+  const header = req.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) {
+    return res.status(401).json({ error: 'Sign in to use the AI features.' });
+  }
+
+  try {
+    const { data, error } = await client.auth.getUser(token);
+    if (error || !data.user) {
+      return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+    }
+    next();
+  } catch (err) {
+    console.error('Failed to verify access token:', err);
+    return res.status(503).json({ error: 'Could not verify your session. Please try again.' });
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
@@ -31,9 +84,14 @@ async function startServer() {
     res.json({
       status: 'ok',
       hasApiKey: Boolean(process.env.GEMINI_API_KEY),
+      hasSupabase: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
       timestamp: new Date().toISOString()
     });
   });
+
+  // Everything below /api/ai costs money to serve, so it requires a signed-in
+  // caller. Mounted before the routes themselves so none can be missed.
+  app.use('/api/ai', requireUser);
 
   // AI Feature: Enhance Journal Entry & Story Polisher
   app.post('/api/ai/enhance-story', async (req, res) => {

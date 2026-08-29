@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TravelMemory, CountryInfo, OptionalFeatures } from '../types';
 import { TravelStats } from '../utils/storage';
+import { apiFetch } from '../lib/supabase';
 import { findCountry } from '../data/countries';
 import { 
   X, 
@@ -60,9 +61,8 @@ export function TravelPosterModal({
         return c?.name || code;
       });
 
-      const res = await fetch('/api/ai/generate-quote', {
+      const res = await apiFetch('/api/ai/generate-quote', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visitedCountries: visitedCountryNames,
           homeCountry: 'Earth',

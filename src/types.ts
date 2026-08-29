@@ -1,6 +1,14 @@
 export interface PhotoItem {
   id: string;
+  /**
+   * Displayable URL. For uploaded photos this is a short-lived signed URL
+   * minted from `path` on load, so it is not durable — never persist it as
+   * the source of truth. Photos added by pasting a link have no `path` and
+   * carry a permanent external URL here instead.
+   */
   url: string;
+  /** Path inside the private `memory-photos` bucket, for uploaded photos. */
+  path?: string;
   caption?: string;
   isCover?: boolean;
   location?: string;
@@ -126,7 +134,6 @@ export interface UserProfile {
   homeCountryCode: string;
   travelerLevel?: string;
   joinedDate: string;
-  isGuest?: boolean;
 }
 
 export interface AuthCredentials {
