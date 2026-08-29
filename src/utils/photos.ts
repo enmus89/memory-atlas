@@ -101,3 +101,30 @@ export function photoPathsOf(memory: TravelMemory): string[] {
     .map((photo) => photo.path)
     .filter((p): p is string => Boolean(p));
 }
+
+/**
+ * Replace the signed-in user's avatar.
+ *
+ * Avatars live in the same private bucket as trip photos, under the user's own
+ * folder, so the existing storage policies cover them. The path is timestamped
+ * so a new upload never collides with a cached copy of the old one.
+ */
+export async function uploadAvatar(
+  userId: string,
+  file: File
+): Promise<{ path: string; url: string }> {
+  return uploadPhoto(userId, file, `avatar-${Date.now()}`);
+}
+
+/** Mint a signed URL for a single stored object, or null if it cannot be signed. */
+export async function signPath(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.error('Failed to sign path:', error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}

@@ -1,6 +1,7 @@
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { AuthCredentials, UserProfile } from '../types';
+import { signPath } from './photos';
 
 /**
  * Authentication, backed by Supabase Auth.
@@ -18,15 +19,12 @@ function randomAvatarColor(): string {
   return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 }
 
-function defaultAvatarFor(name: string): string {
-  return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}`;
-}
-
 interface ProfileRow {
   id: string;
   email: string;
   name: string;
   avatar: string;
+  avatar_path: string | null;
   avatar_color: string;
   bio: string;
   home_country_code: string;
@@ -34,12 +32,20 @@ interface ProfileRow {
   joined_date: string;
 }
 
-function rowToProfile(row: ProfileRow): UserProfile {
+async function rowToProfile(row: ProfileRow): Promise<UserProfile> {
+  // An uploaded avatar lives in private storage, so turn its path into a
+  // short-lived signed URL. No avatar at all is fine — the UI shows initials.
+  let avatar = row.avatar ?? '';
+  if (row.avatar_path) {
+    avatar = (await signPath(row.avatar_path)) ?? '';
+  }
+
   return {
     id: row.id,
     name: row.name,
     email: row.email,
-    avatar: row.avatar || defaultAvatarFor(row.name),
+    avatar,
+    avatarPath: row.avatar_path ?? undefined,
     avatarColor: row.avatar_color,
     bio: row.bio,
     homeCountryCode: (row.home_country_code || 'US').toUpperCase(),
@@ -77,9 +83,9 @@ export async function fetchProfile(user: User): Promise<UserProfile> {
     id: user.id,
     email: user.email ?? '',
     name,
-    avatar: metadata.avatar || defaultAvatarFor(name),
+    avatar: metadata.avatar ?? '',
     avatar_color: metadata.avatar_color || randomAvatarColor(),
-    bio: 'World explorer documenting global adventures, culture, and photography.',
+    bio: '',
     home_country_code: (metadata.home_country_code || 'US').toUpperCase(),
     traveler_level: 'Novice Explorer',
     joined_date: new Date().toISOString().split('T')[0],
@@ -148,7 +154,8 @@ export async function registerNewUser(creds: AuthCredentials): Promise<AuthResul
     options: {
       data: {
         name,
-        avatar: creds.avatar?.trim() || defaultAvatarFor(name),
+        // Deliberately no avatar: a new account shows initials until the
+        // person uploads a picture of their own.
         avatar_color: randomAvatarColor(),
         home_country_code: (creds.homeCountryCode || 'US').toUpperCase(),
       },
@@ -226,6 +233,7 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
   const patch: Record<string, unknown> = {};
   if (updates.name !== undefined) patch.name = updates.name;
   if (updates.avatar !== undefined) patch.avatar = updates.avatar;
+  if (updates.avatarPath !== undefined) patch.avatar_path = updates.avatarPath;
   if (updates.avatarColor !== undefined) patch.avatar_color = updates.avatarColor;
   if (updates.bio !== undefined) patch.bio = updates.bio;
   if (updates.travelerLevel !== undefined) patch.traveler_level = updates.travelerLevel;
@@ -245,6 +253,17 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
   }
 
   return rowToProfile(data as ProfileRow);
+}
+
+/**
+ * Point the profile at a newly uploaded avatar.
+ *
+ * Only the durable storage path is persisted — never the signed URL, which
+ * expires. The profile that comes back already carries a freshly signed URL,
+ * because reading a profile re-signs the path.
+ */
+export async function saveUserAvatar(path: string): Promise<UserProfile> {
+  return updateUserProfile({ avatarPath: path, avatar: '' });
 }
 
 /** Home country lives on the profile; this is a convenience wrapper. */

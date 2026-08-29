@@ -128,7 +128,10 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  /** Displayable avatar URL. Empty means "show initials". */
   avatar: string;
+  /** Storage path for an uploaded avatar; `avatar` is signed from this. */
+  avatarPath?: string;
   avatarColor?: string;
   bio?: string;
   homeCountryCode: string;
@@ -141,7 +144,6 @@ export interface AuthCredentials {
   password?: string;
   name?: string;
   homeCountryCode?: string;
-  avatar?: string;
 }
 
 export interface OptionalFeatures {

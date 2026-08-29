@@ -840,6 +840,10 @@ function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
         onClose={() => setIsAuthModalOpen(false)}
         currentUser={user}
         onAuthenticated={() => setIsAuthModalOpen(false)}
+        onProfileUpdated={(updated) => {
+          onUserUpdated(updated);
+          showToast('Profile picture updated!');
+        }}
         onSignOut={onSignOut}
       />
 

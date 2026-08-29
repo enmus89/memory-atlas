@@ -15,7 +15,10 @@ create table if not exists public.profiles (
   id                uuid primary key references auth.users (id) on delete cascade,
   email             text        not null,
   name              text        not null default 'Traveler',
+  -- Permanent external avatar URL, if any. Uploaded avatars use avatar_path
+  -- instead and are shown through a short-lived signed URL.
   avatar            text        not null default '',
+  avatar_path       text,
   avatar_color      text        not null default '#2563eb',
   bio               text        not null default '',
   home_country_code text        not null default 'US',
@@ -89,6 +92,10 @@ create table if not exists public.city_pins (
   created_at   timestamptz not null default now(),
   primary key (user_id, id)
 );
+
+-- Upgrade path for projects created before avatar uploads existed, so that
+-- re-running this file is enough to bring an existing project up to date.
+alter table public.profiles add column if not exists avatar_path text;
 
 -- Listing a user's own rows newest-first is the only access pattern the app
 -- has, so one index per table covers it.

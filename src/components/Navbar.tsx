@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { AppView, FilterState, UserProfile, OptionalFeatures } from '../types';
 import { TravelStats } from '../utils/storage';
+import { Avatar } from './Avatar';
 import { findCountry } from '../data/countries';
 
 interface NavbarProps {
@@ -243,10 +244,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 title={`Logged in as ${currentUser.name}`}
                 className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-[#e2e8f0] bg-white hover:bg-slate-50 transition-all cursor-pointer group"
               >
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border border-slate-200 shadow-2xs"
+                <Avatar
+                  user={currentUser}
+                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full"
+                  textClassName="text-[9px]"
                 />
                 <div className="hidden 2xl:flex flex-col text-left">
                   <span className="text-xs font-semibold text-[#1e293b] leading-tight flex items-center gap-1">
@@ -269,10 +270,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {/* User Card Header */}
                     <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={currentUser.avatar}
-                          alt={currentUser.name}
-                          className="w-10 h-10 rounded-full object-cover border border-white shadow-xs"
+                        <Avatar
+                          user={currentUser}
+                          className="w-10 h-10 rounded-full"
+                          textClassName="text-xs"
                         />
                         <div className="overflow-hidden">
                           <p className="font-bold text-sm text-[#1e293b] truncate">

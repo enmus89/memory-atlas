@@ -11,11 +11,14 @@ import {
   ShieldCheck,
   LogOut,
   MailCheck,
+  Camera,
   Loader2
 } from 'lucide-react';
 import { UserProfile, AuthCredentials } from '../types';
-import { loginUser, registerNewUser, sendPasswordReset } from '../utils/auth';
+import { loginUser, registerNewUser, sendPasswordReset, saveUserAvatar } from '../utils/auth';
+import { uploadAvatar } from '../utils/photos';
 import { COUNTRIES_DATA } from '../data/countries';
+import { Avatar } from './Avatar';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,16 +28,9 @@ interface AuthModalProps {
   currentUser: UserProfile | null;
   onAuthenticated: (user: UserProfile, message?: string) => void;
   onSignOut: () => void;
+  /** Called after the signed-in user changes their own avatar. */
+  onProfileUpdated?: (user: UserProfile) => void;
 }
-
-const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=250&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=250&q=80',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=250&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
-];
 
 const inputClass =
   'w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-[#1e293b] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all';
@@ -45,7 +41,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   currentUser,
   onAuthenticated,
-  onSignOut
+  onSignOut,
+  onProfileUpdated
 }) => {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
 
@@ -53,7 +50,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [homeCountryCode, setHomeCountryCode] = useState('US');
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_PRESETS[0]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,8 +88,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       name,
       email,
       password,
-      homeCountryCode,
-      avatar: selectedAvatar
+      homeCountryCode
     };
     const res = await registerNewUser(creds);
     setLoading(false);
@@ -131,6 +127,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setNotice(`If an account exists for ${email}, a reset link is on its way.`);
     } else {
       setError(res.error || 'Could not send the reset email.');
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !currentUser) return;
+
+    resetFeedback();
+    setUploadingAvatar(true);
+    try {
+      // Downscaled and stored in the user's own private folder, same as trip
+      // photos; only the path is persisted, and it is re-signed on each load.
+      const { path } = await uploadAvatar(currentUser.id, file);
+      const updated = await saveUserAvatar(path);
+      onProfileUpdated?.(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not upload that picture.');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -220,11 +236,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {showAccountPanel && currentUser && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-14 h-14 rounded-2xl object-cover border border-slate-200"
-                />
+                <label
+                  className="relative group cursor-pointer flex-shrink-0"
+                  title="Upload a profile picture"
+                >
+                  <Avatar
+                    user={currentUser}
+                    className="w-14 h-14 rounded-2xl"
+                    textClassName="text-lg"
+                  />
+                  <span className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {uploadingAvatar ? (
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white" />
+                    )}
+                  </span>
+                  <input
+                    id="avatar-upload-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingAvatar}
+                    onChange={handleAvatarUpload}
+                  />
+                </label>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[#1e293b] truncate">{currentUser.name}</p>
                   <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
@@ -233,6 +269,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              <p className="text-[11px] text-slate-500">
+                {uploadingAvatar
+                  ? 'Uploading your picture…'
+                  : 'Click your picture to upload one of your own.'}
+              </p>
 
               {currentUser.bio && (
                 <p className="text-xs text-slate-600 italic bg-slate-50 border border-slate-200 rounded-xl p-3">
@@ -390,32 +432,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1e293b] mb-1.5">Pick an Avatar</label>
-                <div className="grid grid-cols-6 gap-2">
-                  {AVATAR_PRESETS.map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => setSelectedAvatar(url)}
-                      className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                        selectedAvatar === url
-                          ? 'border-blue-600 ring-2 ring-blue-600/20'
-                          : 'border-transparent hover:border-slate-300'
-                      }`}
-                      aria-label="Select avatar"
-                    >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      {selectedAvatar === url && (
-                        <span className="absolute inset-0 bg-blue-600/30 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-white" />
-                        </span>
-                      )}
-                    </button>
-                  ))}
                 </div>
               </div>
 

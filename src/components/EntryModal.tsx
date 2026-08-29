@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { TravelMemory, PhotoItem, WeatherType, CountryInfo, TravelExpense, ExpenseCategory, OptionalFeatures } from '../types';
 import { COUNTRIES_DATA, findCountry } from '../data/countries';
-import { PRESET_COUNTRY_PHOTOS, COMMON_TRAVEL_TAGS } from '../data/demoMemories';
+import { COMMON_TRAVEL_TAGS } from '../data/demoMemories';
 import { uploadPhoto, deletePhotos } from '../utils/photos';
 import { apiFetch } from '../lib/supabase';
 
@@ -123,56 +123,24 @@ export const EntryModal: React.FC<EntryModalProps> = ({
       setTags(initialMemory.tags || []);
       setPhotos(initialMemory.photos || []);
       setExpenses(initialMemory.expenses || []);
-    } else if (initialCountry) {
-      setCountryCode(initialCountry.code);
-      setCity(initialCountry.capital || '');
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      setTitle(`Journey to ${initialCountry.name}`);
+    } else {
+      // A new entry starts blank. Only the country is carried over when the
+      // user opened this from a specific place on the map — the trip itself is
+      // theirs to write, and the photos theirs to add.
+      setCountryCode(initialCountry?.code || 'FR');
+      setCity('');
+      setStartDate(new Date().toISOString().split('T')[0]);
+      setEndDate('');
+      setTitle('');
       setNotes('');
       setHighlight('');
       setRating(5);
       setWeather('sunny');
       setCompanions('');
       setIsFavorite(false);
-      setTags(['Sightseeing']);
+      setTags([]);
       setExpenses([]);
-      
-      const presets = PRESET_COUNTRY_PHOTOS[initialCountry.code] || [];
-      if (presets.length > 0) {
-        setPhotos(presets.map((p, idx) => ({
-          id: `preset-${Date.now()}-${idx}`,
-          url: p.url,
-          caption: p.caption,
-          location: p.location,
-          isCover: idx === 0
-        })));
-      } else {
-        setPhotos([]);
-      }
-    } else {
-      // Default new entry
-      setCountryCode('FR');
-      setCity('Paris');
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      setTitle('Journey to France');
-      setNotes('');
-      setHighlight('');
-      setRating(5);
-      setWeather('sunny');
-      setCompanions('Solo Exploration');
-      setIsFavorite(false);
-      setTags(['Sightseeing', 'Culinary']);
-      setExpenses([]);
-      const presets = PRESET_COUNTRY_PHOTOS['FR'] || [];
-      setPhotos(presets.map((p, idx) => ({
-        id: `preset-${Date.now()}-${idx}`,
-        url: p.url,
-        caption: p.caption,
-        location: p.location,
-        isCover: idx === 0
-      })));
+      setPhotos([]);
     }
   }, [initialMemory, initialCountry]);
 
@@ -339,19 +307,6 @@ export const EntryModal: React.FC<EntryModalProps> = ({
     setCustomPhotoCaption('');
   };
 
-  const handleAddPresetPhoto = (preset: { url: string; caption: string; location: string }) => {
-    setPhotos(prev => [
-      ...prev,
-      {
-        id: `photo-preset-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        url: preset.url,
-        caption: preset.caption,
-        location: preset.location,
-        isCover: prev.length === 0
-      }
-    ]);
-  };
-
   const handleDeletePhoto = (photoId: string) => {
     const removed = photos.find(p => p.id === photoId);
 
@@ -435,7 +390,6 @@ export const EntryModal: React.FC<EntryModalProps> = ({
     onClose();
   };
 
-  const presetsForCurrentCountry = PRESET_COUNTRY_PHOTOS[countryCode] || [];
 
   if (!isOpen) return null;
 
@@ -941,32 +895,6 @@ export const EntryModal: React.FC<EntryModalProps> = ({
             </div>
 
             {/* Preset photos */}
-            {presetsForCurrentCountry.length > 0 && (
-              <div className="space-y-1.5 pt-1">
-                <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-blue-500" />
-                  <span>Curated Landmarks for {selectedCountryInfo?.name}:</span>
-                </p>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  {presetsForCurrentCountry.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleAddPresetPhoto(preset)}
-                      className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 flex-shrink-0 hover:border-blue-500 transition-colors cursor-pointer"
-                    >
-                      <img 
-                        src={preset.url} 
-                        alt={preset.caption}
-                        className="w-5 h-5 rounded-md object-cover" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <span>+ {preset.caption}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Photos Grid */}
             {photos.length > 0 && (
