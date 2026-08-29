@@ -11,8 +11,14 @@ dotenv.config({ path: ['.env.local', '.env'] });
 
 const PORT = Number(process.env.PORT) || 3000;
 
-// The server accepts the same Supabase project the browser talks to. Either
-// naming works so one .env can serve both the client build and the server.
+// Google retires model ids on a schedule, and a retired id fails per-request
+// rather than at startup — which these routes would quietly swallow as a
+// fallback. Keep it in one place and overridable without a code change.
+// gemini-2.5-flash was withdrawn for newly created API keys.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+
+// The server talks to the same Supabase project the browser does, so either
+// prefix works and one .env can serve both the client build and the server.
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 
 // "Publishable" is the current name for the browser-safe key; "anon" is the
@@ -142,7 +148,7 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODEL,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -197,7 +203,7 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODEL,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -263,7 +269,7 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODEL,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

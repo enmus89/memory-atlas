@@ -58,6 +58,13 @@ Fill in from **Supabase dashboard → Project Settings → API**:
 
 Optionally add `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey) to enable the AI writing features. Without it, those features fall back to canned text and everything else works normally.
 
+`GEMINI_MODEL` is optional and defaults to `gemini-3.6-flash`. Google withdraws model ids over time — `gemini-2.5-flash` is already refused for newly created keys — and because the AI routes fall back to canned text on any error, a withdrawn model looks like the feature quietly doing nothing rather than an error. If the AI output ever goes generic, check the server logs for a `Using graceful fallback` warning and list what your key can reach:
+
+```bash
+curl -s https://generativelanguage.googleapis.com/v1beta/models \
+  -H "x-goog-api-key: $GEMINI_API_KEY"
+```
+
 > **Never** put the Supabase **secret** key (`sb_secret_...`, or the legacy `service_role`) in this project. It bypasses row level security entirely, so it would void every access rule in `schema.sql`. Only the publishable/anon key belongs here.
 
 ### 5. Run it
