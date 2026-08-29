@@ -199,6 +199,19 @@ on conflict (id) do update
       file_size_limit    = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
+-- Supabase ships storage.objects with row level security already on, which is
+-- what makes the policies below bite. Assert it rather than assume it — but
+-- tolerate not owning the table, since storage.objects belongs to
+-- supabase_storage_admin and the SQL editor may not be able to alter it.
+do $$
+begin
+  execute 'alter table storage.objects enable row level security';
+exception
+  when insufficient_privilege or wrong_object_type then
+    raise notice 'Could not alter storage.objects; relying on Supabase''s default (RLS on).';
+end;
+$$;
+
 drop policy if exists "own photos readable"   on storage.objects;
 drop policy if exists "own photos writable"   on storage.objects;
 drop policy if exists "own photos updatable"  on storage.objects;
