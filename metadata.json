@@ -1,0 +1,6 @@
+{
+  "name": "Memory Atlas",
+  "description": "A personal 3D memory atlas and travel diary of the world to record visited countries, photos, stories, and journeys.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
