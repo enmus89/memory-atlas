@@ -120,6 +120,21 @@ The site is static, so GitHub Pages hosts it for free with no cold starts. A wor
 
 The workflow fails the build if the bundle comes out with no Supabase URL in it, which is what happens if you deploy before adding the secrets in step 2.
 
+## Installing it on a phone
+
+The site is a progressive web app, so it installs to the home screen on both iOS and Android with no app store involved.
+
+- **iOS/iPadOS (Safari):** Share → **Add to Home Screen**.
+- **Android (Chrome):** the browser offers **Install app**, or ⋮ → **Add to home screen**.
+
+Installed, it opens full screen with its own icon and no browser chrome. Once a page has been visited online, the app shell and its assets are served from a cache, so it opens offline too — but the trips, photos and AI features all come from Supabase, so they need a connection. Offline is graceful degradation, not an offline mode.
+
+The pieces: `public/manifest.webmanifest` (name, icons, colours), `public/icons/`, and `src/service-worker.js`, which Vite emits to the site root as `sw.js` — a worker only controls the directory it is served from and below, so it cannot live in `assets/`. The manifest's paths are relative, so the same build works from a domain root and from `/<repo>/` on Pages.
+
+The worker caches the HTML document network-first (a deploy is picked up on the next online load) and content-hashed build assets cache-first (a deploy re-downloads only what changed). Supabase requests and signed photo URLs are never intercepted.
+
+---
+
 ## Backups
 
 **Settings → Export JSON Backup** downloads all trips, bucket list entries, and pins as a JSON file. **Restore from JSON File** reads one back into your account.
@@ -132,4 +147,5 @@ Photos are not included in the export — it references them by storage path rat
 
 - **Photos are downscaled in the browser** to 2048px on the long edge and re-encoded as JPEG before upload, which turns a typical 4 MB phone photo into roughly 300–600 KB. A 1 GB free tier holds a couple of thousand photos at that size.
 - **Signed photo URLs last 8 hours** and are re-minted each time the app loads, so a URL copied out of the page will stop working. That is deliberate: the bucket is private.
+- **The globe loads on demand.** `three` and `react-globe.gl` are around 1.9 MB of the build — more than twice everything else combined — so `GlobeView` is behind `React.lazy`. Visitors get the app shell and sign-in screen without waiting for it, and the 2D map stays reachable while it downloads. Keep the import dynamic: a static `import` of `GlobeView` anywhere puts three.js back into the initial bundle.
 - **The AI routes require a signed-in user.** Without that check the deployed URL would be an open proxy to your Gemini key.

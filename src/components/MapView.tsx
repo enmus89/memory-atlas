@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import * as d3Geo from 'd3-geo';
 import * as topojson from 'topojson-client';
 import confetti from 'canvas-confetti';
@@ -28,9 +28,14 @@ import worldAtlasData from 'world-atlas/countries-110m.json';
 import { TravelMemory, Continent, CountryInfo, MapTheme, CityPin, WishlistItem, OptionalFeatures } from '../types';
 import { COUNTRIES_DATA, findCountry, CONTINENTS } from '../data/countries';
 import { TravelStats } from '../utils/storage';
-import { GlobeView } from './GlobeView';
 import { MAP_THEMES } from '../utils/mapTheme';
 import { Sun, Moon } from 'lucide-react';
+
+// The globe drags in three.js and react-globe.gl — together the largest thing
+// in the app by a wide margin. Loading it on demand keeps it out of the initial
+// bundle, so the app shell (and the sign-in screen, which never shows a map at
+// all) paints without waiting for it.
+const GlobeView = lazy(async () => ({ default: (await import('./GlobeView')).GlobeView }));
 
 interface MapViewProps {
   memories: TravelMemory[];
@@ -48,6 +53,26 @@ interface MapViewProps {
   onOpenCityPin?: (pin: CityPin) => void;
   features?: OptionalFeatures;
 }
+
+/**
+ * Shown while the globe chunk downloads. It keeps the 2D switch reachable, so a
+ * slow connection never leaves the map with nothing to press.
+ */
+const GlobeLoading: React.FC<{ isDark: boolean; onSwitchTo2D: () => void }> = ({ isDark, onSwitchTo2D }) => (
+  <div
+    className={`relative w-full h-[calc(100vh-80px)] min-h-[560px] flex flex-col items-center justify-center gap-4 transition-colors duration-300 ${isDark ? 'bg-[#030712] text-slate-300' : 'bg-[#e0f2fe] text-slate-600'}`}
+  >
+    <Orbit className="w-9 h-9 animate-spin [animation-duration:2.4s]" strokeWidth={1.5} />
+    <p className="text-sm font-semibold">Loading the globe…</p>
+    <button
+      onClick={onSwitchTo2D}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${isDark ? 'bg-slate-900/90 border-slate-700/80 hover:bg-slate-800' : 'bg-white/90 border-white/80 hover:bg-white'}`}
+    >
+      <MapIcon className="w-3.5 h-3.5" />
+      Use the flat map instead
+    </button>
+  </div>
+);
 
 const CONTINENT_VIEWPORTS: Record<string, { scale: number; center: [number, number] }> = {
   World: { scale: 170, center: [0, 15] },
@@ -387,21 +412,23 @@ export const MapView: React.FC<MapViewProps> = ({
 
   if (viewMode === '3d') {
     return (
-      <GlobeView
-        memories={memories}
-        stats={stats}
-        homeCountryCode={homeCountryCode}
-        onSetHomeCountry={onSetHomeCountry}
-        mapTheme={mapTheme}
-        onToggleMapTheme={onToggleMapTheme}
-        onSelectCountry={onSelectCountry}
-        onQuickMarkVisited={onQuickMarkVisited}
-        onOpenNewEntryWithCountry={onOpenNewEntryWithCountry}
-        onOpenMemory={onOpenMemory}
-        onSwitchTo2D={() => setViewMode('2d')}
-        activeContinent={activeContinent}
-        onContinentChange={(cont) => setActiveContinent(cont)}
-      />
+      <Suspense fallback={<GlobeLoading isDark={isDark} onSwitchTo2D={() => setViewMode('2d')} />}>
+        <GlobeView
+          memories={memories}
+          stats={stats}
+          homeCountryCode={homeCountryCode}
+          onSetHomeCountry={onSetHomeCountry}
+          mapTheme={mapTheme}
+          onToggleMapTheme={onToggleMapTheme}
+          onSelectCountry={onSelectCountry}
+          onQuickMarkVisited={onQuickMarkVisited}
+          onOpenNewEntryWithCountry={onOpenNewEntryWithCountry}
+          onOpenMemory={onOpenMemory}
+          onSwitchTo2D={() => setViewMode('2d')}
+          activeContinent={activeContinent}
+          onContinentChange={(cont) => setActiveContinent(cont)}
+        />
+      </Suspense>
     );
   }
 
