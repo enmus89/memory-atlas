@@ -143,7 +143,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [stats.totalVisitedCountries]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 min-h-[calc(100vh-4rem)]">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 min-h-full">
       
       {/* Header & Explorer Passport Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

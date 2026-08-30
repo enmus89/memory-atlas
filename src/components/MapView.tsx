@@ -60,7 +60,7 @@ interface MapViewProps {
  */
 const GlobeLoading: React.FC<{ isDark: boolean; onSwitchTo2D: () => void }> = ({ isDark, onSwitchTo2D }) => (
   <div
-    className={`relative w-full h-[calc(100vh-80px)] min-h-[560px] flex flex-col items-center justify-center gap-4 transition-colors duration-300 ${isDark ? 'bg-[#030712] text-slate-300' : 'bg-[#e0f2fe] text-slate-600'}`}
+    className={`relative w-full h-full min-h-0 flex flex-col items-center justify-center gap-4 transition-colors duration-300 ${isDark ? 'bg-[#030712] text-slate-300' : 'bg-[#e0f2fe] text-slate-600'}`}
   >
     <Orbit className="w-9 h-9 animate-spin [animation-duration:2.4s]" strokeWidth={1.5} />
     <p className="text-sm font-semibold">Loading the globe…</p>
@@ -257,15 +257,36 @@ export const MapView: React.FC<MapViewProps> = ({
     return nodes;
   }, [polygonCountryCodes, projection, memoriesByCountryCode, stats.visitedCountryCodes]);
 
-  // Slower, smooth Zoom Handlers with extended zoom capacity (up to 16x)
-  const handleZoom = useCallback((direction: 'in' | 'out') => {
-    setZoomLevel(prev => {
-      // Slower, more controlled step (1.18x instead of 1.35x)
-      const factor = direction === 'in' ? 1.25 : 0.8;
-      const next = Math.max(0.7, Math.min(prev * factor, 16));
-      return next;
+  // Zooming rescales the <g> around the SVG's own (0,0) — its top-left
+  // corner — so without correction every zoom drags the view toward whatever
+  // happened to render there (the far north Atlantic/Canada on the default
+  // projection) instead of staying where you're looking. zoomTo re-solves
+  // panOffset alongside zoomLevel so the point at (anchorX, anchorY) — in
+  // container pixels, matching the SVG's own coordinate space 1:1 — stays
+  // exactly where it was on screen through the zoom.
+  const zoomTo = useCallback((anchorX: number, anchorY: number, nextZoomFromPrev: (prev: number) => number) => {
+    setZoomLevel(prevZoom => {
+      const nextZoom = Math.max(0.7, Math.min(nextZoomFromPrev(prevZoom), 16));
+      setPanOffset(prevPan => {
+        const localX = (anchorX - prevPan.x) / prevZoom;
+        const localY = (anchorY - prevPan.y) / prevZoom;
+        return {
+          x: anchorX - nextZoom * localX,
+          y: anchorY - nextZoom * localY
+        };
+      });
+      return nextZoom;
     });
   }, []);
+
+  // Slower, smooth Zoom Handlers with extended zoom capacity (up to 16x).
+  // Anchored on the center of the visible map, which is what the +/- buttons
+  // and keyboard shortcuts are implicitly zooming "into".
+  const handleZoom = useCallback((direction: 'in' | 'out') => {
+    // Slower, more controlled step (1.18x instead of 1.35x)
+    const factor = direction === 'in' ? 1.25 : 0.8;
+    zoomTo(dimensions.width / 2, dimensions.height / 2, prev => prev * factor);
+  }, [zoomTo, dimensions.width, dimensions.height]);
 
   // Slower, controlled step panning
   const handleStepPan = useCallback((dx: number, dy: number) => {
@@ -313,8 +334,14 @@ export const MapView: React.FC<MapViewProps> = ({
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const scale = dist / touchStartDistRef.current;
-      const nextZoom = Math.max(0.7, Math.min(touchStartZoomRef.current * scale, 16));
-      setZoomLevel(nextZoom);
+      const nextZoom = touchStartZoomRef.current * scale;
+      // Anchored on the pinch midpoint, recomputed every move — so the map
+      // both zooms into the gesture and tracks it as your fingers drift,
+      // instead of the pinched spot sliding away toward a corner.
+      const rect = containerRef.current?.getBoundingClientRect();
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - (rect?.left ?? 0);
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - (rect?.top ?? 0);
+      zoomTo(midX, midY, () => nextZoom);
     }
   };
 
@@ -347,12 +374,34 @@ export const MapView: React.FC<MapViewProps> = ({
     setIsDragging(false);
   };
 
-  // Slower wheel zoom (smooth 4% step instead of jumpy 10%) up to 16x
-  const handleWheel = (e: React.WheelEvent) => {
+  // Slower wheel zoom (smooth 4% step instead of jumpy 10%) up to 16x,
+  // anchored on the cursor so the spot under it is what stays put.
+  //
+  // Attached by hand in an effect rather than via React's onWheel: React
+  // registers wheel listeners as passive, which makes preventDefault() below
+  // silently do nothing — the page then scrolls along with every zoom on
+  // some browsers. A native listener can opt out of that.
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const zoomDelta = e.deltaY < 0 ? 1.05 : 0.95;
-    setZoomLevel(prev => Math.max(0.7, Math.min(prev * zoomDelta, 16)));
-  };
+    const rect = containerRef.current?.getBoundingClientRect();
+    const anchorX = rect ? e.clientX - rect.left : dimensions.width / 2;
+    const anchorY = rect ? e.clientY - rect.top : dimensions.height / 2;
+    zoomTo(anchorX, anchorY, prev => prev * zoomDelta);
+  }, [zoomTo, dimensions.width, dimensions.height]);
+
+  // The 2D map only mounts (and containerRef only attaches to something)
+  // once viewMode is '2d' — this component renders the 3D globe instead
+  // below. Without viewMode in the dependency array this effect fires once
+  // while containerRef.current is still null and never runs again, so the
+  // listener silently never attaches whenever the app opens on the globe
+  // (its default) and the visitor switches to the flat map.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [handleWheel, viewMode]);
 
   // Keyboard navigation for precise, slow control and Escape handling
   useEffect(() => {
@@ -433,7 +482,7 @@ export const MapView: React.FC<MapViewProps> = ({
   }
 
   return (
-    <div className={`relative w-full h-[calc(100vh-80px)] min-h-[560px] overflow-hidden flex flex-col select-none transition-colors duration-300 ${isDark ? 'bg-[#030712]' : 'bg-[#e0f2fe]'}`}>
+    <div className={`relative w-full h-full min-h-0 overflow-hidden flex flex-col select-none transition-colors duration-300 ${isDark ? 'bg-[#030712]' : 'bg-[#e0f2fe]'}`}>
       
       {/* Top Floating Control Bar */}
       <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
@@ -627,7 +676,6 @@ export const MapView: React.FC<MapViewProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

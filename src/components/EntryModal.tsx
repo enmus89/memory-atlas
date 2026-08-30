@@ -340,7 +340,9 @@ export const EntryModal: React.FC<EntryModalProps> = ({
   // Save handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !countryCode) return;
+    // The headline is optional now — a blank one is saved under the
+    // country's name, so a country pick is the only thing actually required.
+    if (!countryCode) return;
     if (uploadingCount > 0) {
       onError('Please wait for your photos to finish uploading.');
       return;
@@ -360,7 +362,7 @@ export const EntryModal: React.FC<EntryModalProps> = ({
       city: city.trim() || selectedCountryInfo?.capital || selectedCountryInfo?.name || '',
       startDate: startDate || new Date().toISOString().split('T')[0],
       endDate: endDate || undefined,
-      title: title.trim(),
+      title: title.trim() || selectedCountryInfo?.name || 'Unknown',
       notes: notes.trim(),
       highlight: highlight.trim() || undefined,
       rating,
@@ -508,15 +510,15 @@ export const EntryModal: React.FC<EntryModalProps> = ({
             {/* Start Date */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Trip Start Date *
+                Trip Start Date
               </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                required
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
               />
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">Left blank, this is saved as today.</p>
             </div>
 
             {/* End Date */}
@@ -551,14 +553,13 @@ export const EntryModal: React.FC<EntryModalProps> = ({
           {/* Journey Title */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Trip Title / Headline *
+              Trip Title / Headline
             </label>
             <input
               type="text"
-              placeholder="e.g. Autumn Mist, Ancient Temples & Midnight Ramen"
+              placeholder={`e.g. Autumn Mist, Ancient Temples & Midnight Ramen — leave blank to use "${selectedCountryInfo?.name || 'the country name'}"`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              required
               className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
           </div>

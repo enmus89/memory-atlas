@@ -43,3 +43,37 @@
 .animate-install-hint {
   animation: install-hint-in 0.3s ease-out;
 }
+
+/* Full-height app shell.
+ *
+ * 100vh on mobile is the viewport with the browser's URL bar hidden, so a
+ * shell sized in vh is taller than what you can actually see and the page has
+ * to be dragged to reach its edges. 100dvh tracks the visible height instead.
+ * The vh line stays as the fallback for browsers without dvh. */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-shell-min {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* The shell owns scrolling, so the document must not add its own — otherwise a
+ * phone gets a second, outer scroll that hides the edges of the app. */
+html,
+body {
+  height: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+/* Keep content clear of a notch or a home indicator once viewport-fit=cover
+ * lets the page draw underneath them. */
+.app-shell,
+.app-shell-min {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -195,7 +195,10 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
         lat: homeCountry.coordinates[1],
         lng: homeCountry.coordinates[0],
         country: homeCountry,
-        name: `🏠 HOME BASE: ${homeCountry.name}`,
+        // No text: the globe's label renderer has no emoji glyph, so the house
+        // came out as a question mark, and the amber dot, its pulsing ring and
+        // the hover card already say this is home.
+        name: '',
         code: homeCountry.code,
         flag: homeCountry.flag,
         isHome: true,
@@ -456,7 +459,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
   const isSelectedCountryHome = selectedCountry?.code?.toUpperCase() === homeCountry?.code?.toUpperCase();
 
   return (
-    <div className={`relative w-full h-[calc(100vh-140px)] min-h-[580px] flex flex-col font-sans select-none overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#030712]' : 'bg-[#e0f2fe]'}`}>
+    <div className={`relative w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#030712]' : 'bg-[#e0f2fe]'}`}>
       
       {/* Top Floating Navigation Header */}
       <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">

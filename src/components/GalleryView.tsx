@@ -110,7 +110,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   }, [allPhotosWithContext, selectedCountryFilter, filter.search]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 min-h-[calc(100vh-4rem)]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 min-h-full">
       
       {/* Header & Albums Filter Card */}
       <div className="bg-white border border-[#e2e8f0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">

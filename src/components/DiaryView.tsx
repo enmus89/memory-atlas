@@ -144,7 +144,7 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 min-h-[calc(100vh-4rem)]">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 min-h-full">
       
       {/* Header & Filter Controls */}
       <div className="bg-stone-900/80 border border-stone-800 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-6">

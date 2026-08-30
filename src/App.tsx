@@ -129,7 +129,7 @@ export function App() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+      <div className="app-shell-min bg-[#f8f9fa] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-slate-500">
           <Compass className="w-8 h-8 text-blue-600 animate-pulse" />
           <span className="text-sm font-medium">Loading your atlas…</span>
@@ -140,7 +140,7 @@ export function App() {
 
   if (status === 'signedOut' || !currentUser) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#eff6ff] via-[#f8f9fa] to-[#f1f5f9] flex items-center justify-center p-4">
+      <div className="app-shell-min bg-gradient-to-br from-[#eff6ff] via-[#f8f9fa] to-[#f1f5f9] flex items-center justify-center p-4">
         {fatalError && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-lg">
             <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-2xl shadow-sm flex items-start gap-2.5 text-xs font-medium">
@@ -646,7 +646,7 @@ function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
 
   if (dataStatus === 'loading') {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+      <div className="app-shell-min bg-[#f8f9fa] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-slate-500">
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
           <span className="text-sm font-medium">Loading your travel memories…</span>
@@ -657,7 +657,7 @@ function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
 
   if (dataStatus === 'error') {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6">
+      <div className="app-shell-min bg-[#f8f9fa] flex items-center justify-center p-6">
         <div className="max-w-md text-center space-y-4">
           <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
           <h1 className="text-lg font-semibold text-[#1e293b]">We could not load your atlas</h1>
@@ -674,7 +674,10 @@ function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] flex flex-col font-sans">
+    // The shell is exactly the visible viewport and never scrolls itself;
+    // each view scrolls inside <main>. That keeps the header and the map
+    // reachable on a phone instead of sitting past the bottom edge.
+    <div className="app-shell bg-[#f8f9fa] text-[#1a1a1a] flex flex-col font-sans overflow-hidden">
 
       {/* Navigation Header */}
       <Navbar
@@ -701,7 +704,7 @@ function Atlas({ user, onUserUpdated, onSignOut }: AtlasProps) {
       />
 
       {/* Main View Area */}
-      <main className="flex-1">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {activeView === 'map' && (
           <MapView
             memories={memories}
