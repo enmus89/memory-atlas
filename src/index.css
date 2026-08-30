@@ -33,3 +33,13 @@
   animation: pulse-ring 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
+
+/* iOS install hint, sliding up from the bottom edge it is anchored to */
+@keyframes install-hint-in {
+  from { transform: translateY(0.75rem); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.animate-install-hint {
+  animation: install-hint-in 0.3s ease-out;
+}

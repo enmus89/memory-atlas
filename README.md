@@ -127,6 +127,8 @@ The site is a progressive web app, so it installs to the home screen on both iOS
 - **iOS/iPadOS (Safari):** Share → **Add to Home Screen**.
 - **Android (Chrome):** the browser offers **Install app**, or ⋮ → **Add to home screen**.
 
+iOS has no install button and no way for a page to ask for one, so first-time visitors on an iPhone or iPad get a dismissible hint pointing at the Share sheet (`src/components/InstallHint.tsx`). It appears only where it is actionable — iOS, in a browser tab, not already installed — and dismissal is remembered per device.
+
 Installed, it opens full screen with its own icon and no browser chrome. Once a page has been visited online, the app shell and its assets are served from a cache, so it opens offline too — but the trips, photos and AI features all come from Supabase, so they need a connection. Offline is graceful degradation, not an offline mode.
 
 The pieces: `public/manifest.webmanifest` (name, icons, colours), `public/icons/`, and `src/service-worker.js`, which Vite emits to the site root as `sw.js` — a worker only controls the directory it is served from and below, so it cannot live in `assets/`. The manifest's paths are relative, so the same build works from a domain root and from `/<repo>/` on Pages.

@@ -29,6 +29,7 @@ import { attachSignedUrls, deletePhotos, photoPathsOf } from './photos';
 
 const MAP_THEME_KEY = 'visited_places_map_theme_v1';
 const OPTIONAL_FEATURES_KEY = 'visited_places_optional_features_v1';
+const INSTALL_HINT_KEY = 'visited_places_install_hint_dismissed_v1';
 
 // ---------------------------------------------------------------------------
 // Device-local UI preferences
@@ -58,6 +59,29 @@ export function saveOptionalFeatures(features: OptionalFeatures): void {
     localStorage.setItem(OPTIONAL_FEATURES_KEY, JSON.stringify(features));
   } catch (err) {
     console.error('Failed to save optional features:', err);
+  }
+}
+
+/**
+ * Whether the iOS "add this to your home screen" hint has been dismissed.
+ * Per-device by nature: installing is something you do to one phone, and the
+ * same account on a laptop should never see the answer given on a phone.
+ */
+export function isInstallHintDismissed(): boolean {
+  try {
+    return localStorage.getItem(INSTALL_HINT_KEY) === 'true';
+  } catch (err) {
+    console.error('Failed to read the install hint preference:', err);
+    // Better to show the hint again than to have it stuck on screen.
+    return false;
+  }
+}
+
+export function dismissInstallHint(): void {
+  try {
+    localStorage.setItem(INSTALL_HINT_KEY, 'true');
+  } catch (err) {
+    console.error('Failed to save the install hint preference:', err);
   }
 }
 

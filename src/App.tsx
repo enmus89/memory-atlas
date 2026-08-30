@@ -54,6 +54,7 @@ import { PhotoLightbox } from './components/PhotoLightbox';
 import { AuthModal } from './components/AuthModal';
 import { TravelPosterModal } from './components/TravelPosterModal';
 import { CityPinModal } from './components/CityPinModal';
+import { InstallHint } from './components/InstallHint';
 import { CheckCircle2, AlertCircle, Compass, Loader2 } from 'lucide-react';
 
 type ToastType = 'success' | 'info' | 'error';
@@ -159,13 +160,19 @@ export function App() {
           }}
           onSignOut={handleSignOut}
         />
+        <InstallHint />
       </div>
     );
   }
 
   // Remounting on account change guarantees no data from the previous user
   // survives into the next session.
-  return <Atlas key={currentUser.id} user={currentUser} onUserUpdated={setCurrentUser} onSignOut={handleSignOut} />;
+  return (
+    <>
+      <Atlas key={currentUser.id} user={currentUser} onUserUpdated={setCurrentUser} onSignOut={handleSignOut} />
+      <InstallHint />
+    </>
+  );
 }
 
 interface AtlasProps {
