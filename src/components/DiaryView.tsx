@@ -147,44 +147,44 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 min-h-full">
       
       {/* Header & Filter Controls */}
-      <div className="bg-stone-900/80 border border-stone-800 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-6">
-        
+      <div className="bg-white border border-[#e2e8f0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+
         {/* Top title and action */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <div className="flex items-center gap-2 text-[#2563eb] text-xs font-bold uppercase tracking-wider mb-1">
               <BookOpen className="w-4 h-4" />
               <span>Chronological Memoirs</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-display text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1a1a1a]">
               Travel Diary & Journeys
             </h1>
-            <p className="text-xs text-stone-400 font-sans mt-1">
+            <p className="text-xs text-[#64748b] font-sans mt-1">
               {processedMemories.length} {processedMemories.length === 1 ? 'journey entry' : 'journey entries'} recorded in your life travelogue
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Sort selector */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-950/70 border border-stone-800 rounded-xl text-xs text-stone-300">
-              <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl text-xs text-[#334155]">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#2563eb]" />
               <select
                 id="diary-sort-select"
                 value={filter.sortBy}
                 onChange={(e) => setFilter(prev => ({ ...prev, sortBy: e.target.value as any }))}
-                className="bg-transparent text-xs text-stone-200 focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs text-[#1e293b] focus:outline-none cursor-pointer"
               >
-                <option value="date-desc" className="bg-stone-900">Newest Trips First</option>
-                <option value="date-asc" className="bg-stone-900">Oldest Trips First</option>
-                <option value="rating" className="bg-stone-900">Highest Rated (★ 5-1)</option>
-                <option value="name" className="bg-stone-900">Country Name (A-Z)</option>
+                <option value="date-desc" className="bg-white">Newest Trips First</option>
+                <option value="date-asc" className="bg-white">Oldest Trips First</option>
+                <option value="rating" className="bg-white">Highest Rated (★ 5-1)</option>
+                <option value="name" className="bg-white">Country Name (A-Z)</option>
               </select>
             </div>
 
             <button
               id="diary-add-journey-btn"
               onClick={onOpenNewEntry}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Record Trip</span>
@@ -193,19 +193,19 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
         </div>
 
         {/* Filter bar */}
-        <div className="space-y-3 pt-3 border-t border-stone-800/80">
-          
+        <div className="space-y-3 pt-4 border-t border-[#f1f5f9]">
+
           {/* Continents Filter */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider mr-1 flex-shrink-0">
+            <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider mr-1 flex-shrink-0">
               Region:
             </span>
             <button
               onClick={() => setFilter(prev => ({ ...prev, continent: 'ALL' }))}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                 !filter.continent || filter.continent === 'ALL'
-                  ? 'bg-amber-500 text-stone-950 font-semibold'
-                  : 'bg-stone-950/70 border border-stone-800 text-stone-300 hover:text-stone-100'
+                  ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
+                  : 'bg-[#f8fafc] border border-[#e2e8f0] text-[#64748b] hover:text-[#1e293b]'
               }`}
             >
               All Continents
@@ -214,10 +214,10 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
               <button
                 key={cont}
                 onClick={() => setFilter(prev => ({ ...prev, continent: prev.continent === cont ? 'ALL' : cont }))}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   filter.continent === cont
-                    ? 'bg-amber-500 text-stone-950 font-semibold shadow-sm'
-                    : 'bg-stone-950/70 border border-stone-800 text-stone-300 hover:text-stone-100 hover:border-stone-700'
+                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
+                    : 'bg-[#f8fafc] border border-[#e2e8f0] text-[#64748b] hover:text-[#1e293b]'
                 }`}
               >
                 {cont}
@@ -228,15 +228,15 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
           {/* Tags Filter */}
           {allTags.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider mr-1 flex-shrink-0">
+              <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider mr-1 flex-shrink-0">
                 Tags:
               </span>
               <button
                 onClick={() => setFilter(prev => ({ ...prev, tag: 'ALL' }))}
-                className={`px-2.5 py-0.5 rounded-md text-[11px] transition-all ${
+                className={`px-2.5 py-0.5 rounded-md text-[11px] transition-all cursor-pointer ${
                   !filter.tag || filter.tag === 'ALL'
-                    ? 'bg-stone-700 text-stone-100 font-semibold'
-                    : 'text-stone-400 hover:text-stone-200'
+                    ? 'bg-[#1e293b] text-white font-semibold'
+                    : 'text-[#64748b] hover:text-[#1e293b]'
                 }`}
               >
                 #All
@@ -245,10 +245,10 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                 <button
                   key={tag}
                   onClick={() => setFilter(prev => ({ ...prev, tag: prev.tag === tag ? 'ALL' : tag }))}
-                  className={`px-2.5 py-0.5 rounded-md text-[11px] transition-all ${
+                  className={`px-2.5 py-0.5 rounded-md text-[11px] transition-all cursor-pointer ${
                     filter.tag === tag
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-medium'
-                      : 'text-stone-400 hover:text-stone-200 bg-stone-950/40'
+                      ? 'bg-blue-50 text-[#2563eb] border border-blue-200 font-medium'
+                      : 'text-[#64748b] hover:text-[#1e293b] bg-[#f8fafc]'
                   }`}
                 >
                   #{tag}
@@ -263,14 +263,14 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
 
       {/* Diary Entries List */}
       {processedMemories.length === 0 ? (
-        <div className="text-center py-20 bg-stone-900/40 border border-dashed border-stone-800 rounded-3xl p-8 max-w-md mx-auto">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mx-auto flex items-center justify-center mb-4">
+        <div className="text-center py-20 bg-white border border-dashed border-[#cbd5e1] rounded-3xl p-8 max-w-md mx-auto shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-[#e0f2fe] border border-blue-200 text-[#2563eb] mx-auto flex items-center justify-center mb-4">
             <BookOpen className="w-8 h-8" />
           </div>
-          <h3 className="font-display font-semibold text-stone-200 text-lg mb-1">
+          <h3 className="font-bold text-[#1e293b] text-lg mb-1">
             No Travel Memories Found
           </h3>
-          <p className="text-xs text-stone-400 mb-6 leading-relaxed">
+          <p className="text-xs text-[#64748b] mb-6 leading-relaxed">
             {filter.search || (filter.continent && filter.continent !== 'ALL') || filter.favoriteOnly
               ? 'No journal entries match your active filters. Try clearing your search parameters.'
               : 'Your travel diary is waiting for its first adventure. Record a journey or mark a visited country!'}
@@ -290,7 +290,7 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                 });
               }
             }}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs rounded-xl transition-all shadow-md"
+            className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
           >
             {memories.length === 0 ? 'Record Your First Trip' : 'Clear All Filters'}
           </button>
@@ -303,51 +303,51 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
             const weatherIcon = renderWeatherIcon(mem.weather);
 
             return (
-              <article 
+              <article
                 key={mem.id}
-                className="bg-stone-900/90 border border-stone-800 hover:border-stone-700/80 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl transition-all duration-300"
+                className="bg-white border border-[#e2e8f0] hover:border-[#cbd5e1] rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
               >
-                
+
                 {/* Photo Header Mosaic or Banner */}
                 {photos.length > 0 && (
-                  <div className="relative bg-stone-950 border-b border-stone-800/80">
+                  <div className="relative bg-[#f1f5f9] border-b border-[#e2e8f0]">
                     {photos.length === 1 ? (
-                      <div 
+                      <div
                         onClick={() => onOpenPhotoLightbox(photos[0], photos)}
                         className="relative h-64 sm:h-80 w-full overflow-hidden cursor-pointer group"
                       >
-                        <img 
-                          src={photos[0].url} 
+                        <img
+                          src={photos[0].url}
                           alt={photos[0].caption || mem.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           referrerPolicy="no-referrer"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-transparent to-transparent opacity-60" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-70" />
                         {photos[0].caption && (
                           <div className="absolute bottom-4 left-6 right-6">
-                            <p className="text-xs text-stone-200 bg-stone-950/70 backdrop-blur-sm px-3 py-1.5 rounded-lg inline-block border border-stone-800">
+                            <p className="text-xs text-white bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-lg inline-block border border-white/10">
                               📷 {photos[0].caption}
                             </p>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 p-1 bg-stone-950">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 p-1 bg-[#f1f5f9]">
                         {/* Main Cover Image (2 cols on sm) */}
-                        <div 
+                        <div
                           onClick={() => onOpenPhotoLightbox(photos[0], photos)}
                           className="relative sm:col-span-2 h-56 sm:h-72 overflow-hidden rounded-xl cursor-pointer group"
                         >
-                          <img 
-                            src={photos[0].url} 
+                          <img
+                            src={photos[0].url}
                             alt={photos[0].caption || mem.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent opacity-50" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                           {photos[0].caption && (
                             <div className="absolute bottom-3 left-3">
-                              <p className="text-[11px] text-stone-200 bg-stone-950/80 px-2.5 py-1 rounded-md">
+                              <p className="text-[11px] text-white bg-black/60 px-2.5 py-1 rounded-md">
                                 {photos[0].caption}
                               </p>
                             </div>
@@ -357,19 +357,19 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                         {/* Secondary Photos Column */}
                         <div className="grid grid-cols-2 sm:grid-cols-1 gap-1 h-28 sm:h-72">
                           {photos.slice(1, 3).map((p, pIdx) => (
-                            <div 
+                            <div
                               key={p.id || pIdx}
                               onClick={() => onOpenPhotoLightbox(p, photos)}
-                              className="relative h-full overflow-hidden rounded-xl cursor-pointer group bg-stone-900"
+                              className="relative h-full overflow-hidden rounded-xl cursor-pointer group bg-[#e2e8f0]"
                             >
-                              <img 
-                                src={p.url} 
+                              <img
+                                src={p.url}
                                 alt={p.caption || 'Travel image'}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 referrerPolicy="no-referrer"
                               />
                               {photos.length > 3 && pIdx === 1 && (
-                                <div className="absolute inset-0 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center text-white font-semibold text-xs group-hover:bg-stone-950/60 transition-colors">
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-white font-semibold text-xs group-hover:bg-black/50 transition-colors">
                                   <span>+{photos.length - 3} more photos</span>
                                 </div>
                               )}
@@ -389,22 +389,22 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap mb-2">
                         <span className="text-2xl leading-none">{mem.countryFlag}</span>
-                        <span className="text-base font-bold font-display text-amber-400">
+                        <span className="text-base font-bold text-[#2563eb]">
                           {mem.countryName}
                         </span>
-                        <span className="text-stone-600">•</span>
-                        <span className="flex items-center gap-1 text-xs text-stone-300 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[#cbd5e1]">•</span>
+                        <span className="flex items-center gap-1 text-xs text-[#1e293b] font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-[#2563eb]" />
                           {mem.city}
                         </span>
-                        <span className="text-stone-600">•</span>
-                        <span className="flex items-center gap-1 text-xs text-stone-400 font-mono">
-                          <Calendar className="w-3.5 h-3.5 text-stone-500" />
+                        <span className="text-[#cbd5e1]">•</span>
+                        <span className="flex items-center gap-1 text-xs text-[#94a3b8] font-mono">
+                          <Calendar className="w-3.5 h-3.5 text-[#94a3b8]" />
                           {mem.startDate} {mem.endDate ? `→ ${mem.endDate}` : ''}
                         </span>
                       </div>
 
-                      <h2 className="text-xl sm:text-2xl font-bold font-display text-white leading-tight">
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1a1a1a] leading-tight">
                         {mem.title}
                       </h2>
                     </div>
@@ -414,19 +414,19 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                       <button
                         onClick={() => onToggleFavorite(mem.id)}
                         title={mem.isFavorite ? "Remove favorite" : "Mark as favorite"}
-                        className={`p-2 rounded-xl border transition-all ${
-                          mem.isFavorite 
-                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-sm' 
-                            : 'bg-stone-950/60 border-stone-800 text-stone-400 hover:text-stone-200'
+                        className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                          mem.isFavorite
+                            ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-xs'
+                            : 'bg-white border-[#e2e8f0] text-[#64748b] hover:text-[#1e293b] hover:bg-[#f8fafc]'
                         }`}
                       >
-                        <Heart className={`w-4 h-4 ${mem.isFavorite ? 'fill-rose-400' : ''}`} />
+                        <Heart className={`w-4 h-4 ${mem.isFavorite ? 'fill-rose-500' : ''}`} />
                       </button>
 
                       <button
                         onClick={() => onEditMemory(mem)}
                         title="Edit Memory"
-                        className="p-2 rounded-xl bg-stone-950/60 border border-stone-800 text-stone-400 hover:text-amber-400 hover:border-stone-700 transition-all"
+                        className="p-2 rounded-xl bg-white border border-[#e2e8f0] text-[#64748b] hover:text-[#2563eb] hover:bg-[#f8fafc] transition-all cursor-pointer"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -434,7 +434,7 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                       <button
                         onClick={() => onDeleteMemory(mem.id)}
                         title="Delete Journey"
-                        className="p-2 rounded-xl bg-stone-950/60 border border-stone-800 text-stone-400 hover:text-rose-400 hover:border-stone-700 transition-all"
+                        className="p-2 rounded-xl bg-white border border-[#e2e8f0] text-[#64748b] hover:text-rose-600 hover:bg-[#f8fafc] transition-all cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -443,12 +443,12 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
 
                   {/* Highlight Quote Box */}
                   {mem.highlight && (
-                    <div className="p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-l-4 border-amber-500 rounded-r-2xl">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1 flex items-center gap-1.5">
+                    <div className="p-4 bg-amber-500/10 border-l-4 border-amber-500 rounded-r-2xl">
+                      <p className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5" />
                         Highlight of the Trip
                       </p>
-                      <p className="text-sm font-display text-amber-100/90 italic leading-relaxed">
+                      <p className="text-sm text-amber-900 italic leading-relaxed">
                         "{mem.highlight}"
                       </p>
                     </div>
@@ -456,25 +456,25 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
 
                   {/* Travel Story & Notes */}
                   <div className="space-y-2">
-                    <p className="text-xs sm:text-sm text-stone-300 leading-relaxed font-sans whitespace-pre-line">
+                    <p className="text-xs sm:text-sm text-[#334155] leading-relaxed font-sans whitespace-pre-line">
                       {mem.notes}
                     </p>
                   </div>
 
                   {/* Metadata Footer: Rating, Weather, Companions, Tags */}
-                  <div className="pt-4 border-t border-stone-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    
+                  <div className="pt-4 border-t border-[#f1f5f9] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
                     {/* Left: Star Rating + Weather + Companions */}
-                    <div className="flex items-center gap-4 flex-wrap text-xs text-stone-400">
+                    <div className="flex items-center gap-4 flex-wrap text-xs text-[#64748b]">
                       {/* Rating */}
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
                             className={`w-3.5 h-3.5 ${
-                              star <= mem.rating 
-                                ? 'fill-amber-400 text-amber-400' 
-                                : 'text-stone-700'
+                              star <= mem.rating
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-[#e2e8f0]'
                             }`}
                           />
                         ))}
@@ -482,7 +482,7 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
 
                       {/* Weather Pill */}
                       {mem.weather && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-950/60 border border-stone-800 text-[11px] capitalize">
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f8fafc] border border-[#e2e8f0] text-[11px] capitalize">
                           {weatherIcon}
                           <span>{mem.weather.replace('_', ' ')}</span>
                         </span>
@@ -490,8 +490,8 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
 
                       {/* Companions Pill */}
                       {mem.companions && (
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-950/60 border border-stone-800 text-[11px]">
-                          <Users className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f8fafc] border border-[#e2e8f0] text-[11px]">
+                          <Users className="w-3.5 h-3.5 text-[#64748b]" />
                           <span>{mem.companions}</span>
                         </span>
                       )}
@@ -504,7 +504,7 @@ export const DiaryView: React.FC<DiaryViewProps> = ({
                           <button
                             key={idx}
                             onClick={() => setFilter(prev => ({ ...prev, tag: t }))}
-                            className="text-[11px] px-2.5 py-0.5 rounded-full bg-stone-950/60 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition-colors"
+                            className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#f8fafc] hover:bg-[#e2e8f0] text-[#64748b] border border-[#e2e8f0] hover:border-blue-200 hover:text-[#2563eb] transition-colors cursor-pointer"
                           >
                             #{t}
                           </button>

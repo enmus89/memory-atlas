@@ -154,11 +154,13 @@ export interface OptionalFeatures {
   aiAssistant: boolean;
 }
 
+// Off until a visitor turns them on in Settings, so a first visit shows the
+// core atlas — map, diary, photos — rather than every optional extra at once.
 export const DEFAULT_OPTIONAL_FEATURES: OptionalFeatures = {
-  bucketList: true,
-  posterGenerator: true,
-  landmarkPinning: true,
-  budgetExpenses: true,
-  aiAssistant: true,
+  bucketList: false,
+  posterGenerator: false,
+  landmarkPinning: false,
+  budgetExpenses: false,
+  aiAssistant: false,
 };
 

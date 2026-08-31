@@ -39,13 +39,16 @@ export function loadOptionalFeatures(): OptionalFeatures {
   try {
     const saved = localStorage.getItem(OPTIONAL_FEATURES_KEY);
     if (saved) {
+      // Optional features default off, so a key a saved blob doesn't have —
+      // an older save from before that feature existed, or one that's simply
+      // never been switched on — reads as off, not on.
       const parsed = JSON.parse(saved);
       return {
-        bucketList: parsed.bucketList !== false,
-        posterGenerator: parsed.posterGenerator !== false,
-        landmarkPinning: parsed.landmarkPinning !== false,
-        budgetExpenses: parsed.budgetExpenses !== false,
-        aiAssistant: parsed.aiAssistant !== false,
+        bucketList: parsed.bucketList === true,
+        posterGenerator: parsed.posterGenerator === true,
+        landmarkPinning: parsed.landmarkPinning === true,
+        budgetExpenses: parsed.budgetExpenses === true,
+        aiAssistant: parsed.aiAssistant === true,
       };
     }
   } catch (err) {
