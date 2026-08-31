@@ -1067,8 +1067,6 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
             <span>{flightArcsData.length} Flight Arcs</span>
           </div>
         )}
-        <span className={isDark ? 'text-slate-700' : 'text-slate-300'}>|</span>
-        <span className="text-slate-400">Click arc / country to view</span>
       </div>
 
     </div>

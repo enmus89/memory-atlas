@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Compass, 
   Globe, 
@@ -74,6 +74,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // The header row can scroll horizontally on its own (overflow-x-auto, a
+  // safety net for when every optional feature is enabled and the row is
+  // wider than the viewport) — and a scrolling ancestor clips any ordinary
+  // `position: absolute` child to its own box, which cut these two dropdowns
+  // off at the header's bottom edge instead of letting them float over the
+  // page below. `position: fixed`, positioned from the toggle button's own
+  // rect, escapes that clipping (fixed elements aren't constrained by an
+  // ancestor's overflow) without having to give up the safety net.
+  const userMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const settingsMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const [userMenuPos, setUserMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [settingsMenuPos, setSettingsMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  const toggleMenu = (
+    isOpen: boolean,
+    setOpen: (v: boolean) => void,
+    btnRef: React.RefObject<HTMLButtonElement>,
+    setPos: (p: { top: number; right: number }) => void
+  ) => {
+    if (!isOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+    setOpen(!isOpen);
+  };
   const [searchFocused, setSearchFocused] = useState(false);
 
   const homeCountry = findCountry(currentUser.homeCountryCode);
@@ -263,8 +289,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* User Login & Profile Dropdown */}
             <div className="relative">
               <button
+                ref={userMenuBtnRef}
                 id="navbar-user-profile-btn"
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={() => toggleMenu(showUserMenu, setShowUserMenu, userMenuBtnRef, setUserMenuPos)}
                 title={`Logged in as ${currentUser.name}`}
                 className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-[#e2e8f0] bg-white hover:bg-slate-50 transition-all cursor-pointer group"
               >
@@ -284,13 +311,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 hidden sm:block" />
               </button>
 
-              {showUserMenu && (
+              {showUserMenu && userMenuPos && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowUserMenu(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-[#e2e8f0] rounded-2xl shadow-xl z-50 p-2 text-xs text-[#1e293b] font-sans animate-fade-in">
+                  <div
+                    style={{ position: 'fixed', top: userMenuPos.top, right: userMenuPos.right }}
+                    className="w-64 bg-white border border-[#e2e8f0] rounded-2xl shadow-xl z-50 p-2 text-xs text-[#1e293b] font-sans animate-fade-in">
                     {/* User Card Header */}
                     <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                       <div className="flex items-center gap-2.5">
@@ -374,21 +403,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Backup & Settings Menu */}
             <div className="relative">
               <button
+                ref={settingsMenuBtnRef}
                 id="navbar-menu-toggle-btn"
-                onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                onClick={() => toggleMenu(showSettingsMenu, setShowSettingsMenu, settingsMenuBtnRef, setSettingsMenuPos)}
                 title="Options & Data"
                 className="p-2 rounded-xl bg-white border border-[#e2e8f0] text-[#64748b] hover:text-[#1e293b] hover:bg-[#f8fafc] transition-all cursor-pointer"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
 
-              {showSettingsMenu && (
+              {showSettingsMenu && settingsMenuPos && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowSettingsMenu(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowSettingsMenu(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-[#e2e8f0] rounded-2xl shadow-xl z-50 p-2 text-xs text-[#1e293b] font-sans">
+                  <div
+                    style={{ position: 'fixed', top: settingsMenuPos.top, right: settingsMenuPos.right }}
+                    className="w-72 sm:w-80 max-h-[calc(100vh-5rem)] overflow-y-auto bg-white border border-[#e2e8f0] rounded-2xl shadow-xl z-50 p-2 text-xs text-[#1e293b] font-sans">
                     {/* Optional Features Selection with Checkboxes */}
                     <div className="px-2.5 py-1.5 border-b border-[#f1f5f9] mb-1.5 flex items-center justify-between">
                       <div>
