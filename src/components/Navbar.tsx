@@ -105,11 +105,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const homeCountry = findCountry(currentUser.homeCountryCode);
 
   const navItems: { id: AppView; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'map', label: 'Atlas Map', icon: <MapIcon className="w-4 h-4" />, badge: stats.totalVisitedCountries },
-    { id: 'diary', label: 'Travel Diary', icon: <BookOpen className="w-4 h-4" />, badge: stats.totalMemoriesCount },
-    ...(features.bucketList ? [{ id: 'wishlist' as AppView, label: 'Bucket List', icon: <Bookmark className="w-4 h-4" />, badge: wishlistCount }] : []),
-    { id: 'gallery', label: 'Photo Gallery', icon: <ImageIcon className="w-4 h-4" />, badge: stats.totalPhotosCount },
-    { id: 'stats', label: features.budgetExpenses ? 'Passport & Budget' : 'Passport & Stats', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'map', label: 'Atlas Map', icon: <MapIcon className="w-5 h-5" />, badge: stats.totalVisitedCountries },
+    { id: 'diary', label: 'Travel Diary', icon: <BookOpen className="w-5 h-5" />, badge: stats.totalMemoriesCount },
+    ...(features.bucketList ? [{ id: 'wishlist' as AppView, label: 'Bucket List', icon: <Bookmark className="w-5 h-5" />, badge: wishlistCount }] : []),
+    { id: 'gallery', label: 'Photo Gallery', icon: <ImageIcon className="w-5 h-5" />, badge: stats.totalPhotosCount },
+    { id: 'stats', label: features.budgetExpenses ? 'Passport & Budget' : 'Passport & Stats', icon: <BarChart3 className="w-5 h-5" /> },
   ];
 
   return (
@@ -175,8 +175,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Center Navigation Tabs */}
-          <nav className="hidden lg:flex items-center p-1 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl">
+          {/* Center Navigation Tabs — icon-only, the label lives in the
+              native title tooltip (hover on desktop, long-press on touch)
+              rather than being spelled out beside every icon. */}
+          <nav className="hidden lg:flex items-center gap-1 p-1 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl">
             {navItems.map((item) => {
               const isActive = activeView === item.id;
               return (
@@ -184,20 +186,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                   key={item.id}
                   id={`nav-tab-${item.id}`}
                   onClick={() => setActiveView(item.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                  title={item.label}
+                  aria-label={item.label}
+                  className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-white text-[#2563eb] shadow-xs font-bold'
+                      ? 'bg-white text-[#2563eb] shadow-xs'
                       : 'text-[#64748b] hover:text-[#1e293b] hover:bg-white/60'
                   }`}
                 >
                   {item.icon}
-                  <span>{item.label}</span>
-                  {item.badge !== undefined && (
+                  {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
-                        isActive 
-                          ? 'bg-[#e0f2fe] text-[#2563eb] font-bold' 
-                          : 'bg-[#e2e8f0] text-[#64748b]'
+                      className={`absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] leading-[1.1rem] font-bold font-mono ${
+                        isActive
+                          ? 'bg-[#2563eb] text-white'
+                          : 'bg-[#e2e8f0] text-[#475569]'
                       }`}
                     >
                       {item.badge}
