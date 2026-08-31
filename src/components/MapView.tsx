@@ -110,6 +110,43 @@ export const MapView: React.FC<MapViewProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [panStartOffset, setPanStartOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  /**
+   * Converts a client (mouse/touch) coordinate into the SVG's own viewBox
+   * coordinate space — the space `panOffset`, `zoomLevel`, and every path
+   * and node position are already expressed in.
+   *
+   * The `<svg>` is `width="100%" height="100%"` with a separate `viewBox`,
+   * so a CSS pixel and a viewBox unit are the same size only when the
+   * container's rendered aspect ratio happens to exactly match
+   * `dimensions.width / dimensions.height` — rarely true in practice.
+   * Left uncorrected, every mouse position derived from `clientX/clientY`
+   * (zoom-to-cursor, pinch anchoring, hit-testing) drifts from where the
+   * pointer actually is by that mismatch — the same few pixels that
+   * separate neighbors like Bahrain and Qatar.
+   */
+  const toViewBoxPoint = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return null;
+    // The <svg> has no `preserveAspectRatio`, so it keeps the browser
+    // default, "xMidYMid meet": the viewBox is scaled *uniformly* — by
+    // whichever of width/height is more constraining — and centered in
+    // whatever gap that leaves on the other axis, rather than each axis
+    // stretched independently to fill the box. A plain per-axis
+    // `dimensions.width / rect.width` ratio ignores that centering gap
+    // entirely, so it was silently off by a constant amount on every
+    // click whenever the container's aspect ratio didn't exactly match
+    // the viewBox's 1000:600 — which is most window sizes. Mirroring the
+    // browser's own "meet" math here is what makes the inverse mapping
+    // (client pixel back to viewBox unit) exact.
+    const scale = Math.min(rect.width / dimensions.width, rect.height / dimensions.height);
+    const offsetX = (rect.width - dimensions.width * scale) / 2;
+    const offsetY = (rect.height - dimensions.height * scale) / 2;
+    return {
+      x: (clientX - rect.left - offsetX) / scale,
+      y: (clientY - rect.top - offsetY) / scale,
+    };
+  }, [dimensions.width, dimensions.height]);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   const [activeContinent, setActiveContinent] = useState<string>('World');
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,22 +163,32 @@ export const MapView: React.FC<MapViewProps> = ({
     return set;
   }, [wishlist, features?.bucketList]);
 
-  // Measure container dimensions
+  // Measure container dimensions.
+  //
+  // A ResizeObserver rather than a window 'resize' listener, and re-armed
+  // whenever `viewMode` changes rather than only on mount: `containerRef`
+  // only attaches to something while the 2D map is showing (the 3D globe
+  // has no such container), and this component defaults to the globe. A
+  // mount-only effect measures a null ref on that first render, `dimensions`
+  // is left at its fallback default forever, and every click position this
+  // component converts back from screen pixels — including the microstate
+  // hit-testing above — is silently computed against the wrong box size
+  // until (if ever) the browser window itself happens to resize.
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
     const updateSize = () => {
-      if (containerRef.current) {
-        const { clientWidth, clientHeight } = containerRef.current;
-        setDimensions({
-          width: Math.max(clientWidth, 600),
-          height: Math.max(clientHeight, 500)
-        });
-      }
+      const { clientWidth, clientHeight } = el;
+      setDimensions({
+        width: Math.max(clientWidth, 600),
+        height: Math.max(clientHeight, 500)
+      });
     };
-
     updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode]);
 
   // Map memories by country code
   const memoriesByCountryCode = useMemo(() => {
@@ -338,10 +385,10 @@ export const MapView: React.FC<MapViewProps> = ({
       // Anchored on the pinch midpoint, recomputed every move — so the map
       // both zooms into the gesture and tracks it as your fingers drift,
       // instead of the pinched spot sliding away toward a corner.
-      const rect = containerRef.current?.getBoundingClientRect();
-      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - (rect?.left ?? 0);
-      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - (rect?.top ?? 0);
-      zoomTo(midX, midY, () => nextZoom);
+      const midClientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midClientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const mid = toViewBoxPoint(midClientX, midClientY);
+      if (mid) zoomTo(mid.x, mid.y, () => nextZoom);
     }
   };
 
@@ -384,11 +431,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const zoomDelta = e.deltaY < 0 ? 1.05 : 0.95;
-    const rect = containerRef.current?.getBoundingClientRect();
-    const anchorX = rect ? e.clientX - rect.left : dimensions.width / 2;
-    const anchorY = rect ? e.clientY - rect.top : dimensions.height / 2;
-    zoomTo(anchorX, anchorY, prev => prev * zoomDelta);
-  }, [zoomTo, dimensions.width, dimensions.height]);
+    const anchor = toViewBoxPoint(e.clientX, e.clientY) ?? { x: dimensions.width / 2, y: dimensions.height / 2 };
+    zoomTo(anchor.x, anchor.y, prev => prev * zoomDelta);
+  }, [zoomTo, dimensions.width, dimensions.height, toViewBoxPoint]);
 
   // The 2D map only mounts (and containerRef only attaches to something)
   // once viewMode is '2d' — this component renders the 3D globe instead
@@ -455,9 +500,43 @@ export const MapView: React.FC<MapViewProps> = ({
     ).slice(0, 6);
   }, [searchQuery]);
 
-  const selectedCountryMemories = selectedCountry 
+  const selectedCountryMemories = selectedCountry
     ? memoriesByCountryCode.get(selectedCountry.code.toUpperCase()) || []
     : [];
+
+  /**
+   * Finds whichever microstate node is actually nearest a click, rather than
+   * trusting the node whose invisible hit-circle happened to receive the
+   * browser event.
+   *
+   * The circles are deliberately generous (see `hitRadius` below) so tiny
+   * countries stay tappable, but that means close neighbors overlap: Bahrain
+   * and Qatar sit under 3px apart at the default world zoom, so their hit
+   * circles cover each other almost entirely. SVG delivers a click to
+   * whichever shape paints on top at that pixel — array order, not geography
+   * — which is why clicking Bahrain could select Qatar. Re-deriving the
+   * nearest node from the actual click position, in the same unzoomed
+   * coordinate space the nodes are placed in, makes the result depend on
+   * where you clicked instead of render order.
+   */
+  const resolveMicrostateClick = useCallback((e: React.MouseEvent): typeof microstateNodes[number] | null => {
+    if (microstateNodes.length === 0) return null;
+    const point = toViewBoxPoint(e.clientX, e.clientY);
+    if (!point) return null;
+    const rawX = (point.x - panOffset.x) / zoomLevel;
+    const rawY = (point.y - panOffset.y) / zoomLevel;
+    let nearest: typeof microstateNodes[number] | null = null;
+    let nearestDist = Infinity;
+    for (const node of microstateNodes) {
+      const dist = Math.hypot(node.svgX - rawX, node.svgY - rawY);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = node;
+      }
+    }
+    const maxHitRadius = Math.max(6, 9 / Math.sqrt(zoomLevel));
+    return nearest && nearestDist <= maxHitRadius ? nearest : null;
+  }, [microstateNodes, panOffset, zoomLevel, toViewBoxPoint]);
 
   if (viewMode === '3d') {
     return (
@@ -779,7 +858,10 @@ export const MapView: React.FC<MapViewProps> = ({
                   className="cursor-pointer group"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleCountryClick(node.country, node.memories, node.country.name);
+                    // Resolve to whichever node is truly nearest this click —
+                    // may not be `node` itself when neighbors overlap.
+                    const resolved = resolveMicrostateClick(e) ?? node;
+                    handleCountryClick(resolved.country, resolved.memories, resolved.country.name);
                   }}
                 >
                   {/* Invisible Generous Hitbox */}
@@ -1041,8 +1123,6 @@ export const MapView: React.FC<MapViewProps> = ({
             <span className={`w-3 h-3 rounded-full border ${isDark ? 'bg-[#334155] border-slate-600' : 'bg-[#cbd5e1] border-slate-400'}`} />
             <span>Unexplored</span>
           </div>
-          <span className={isDark ? 'text-slate-700' : 'text-[#cbd5e1]'}>|</span>
-          <span className={isDark ? 'text-slate-500' : 'text-[#94a3b8]'}>Click country to view • Arrows or drag to pan</span>
         </div>
 
       </div>

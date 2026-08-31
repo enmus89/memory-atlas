@@ -43,6 +43,13 @@ export const COUNTRIES_DATA: CountryInfo[] = [
   { code: 'RS', code3: 'SRB', numericId: '688', name: 'Serbia', continent: 'Europe', flag: '🇷🇸', capital: 'Belgrade', coordinates: [21.0059, 44.0165] },
   { code: 'BA', code3: 'BIH', numericId: '070', name: 'Bosnia and Herzegovina', continent: 'Europe', flag: '🇧🇦', capital: 'Sarajevo', coordinates: [17.6791, 43.9159] },
   { code: 'ME', code3: 'MNE', numericId: '499', name: 'Montenegro', continent: 'Europe', flag: '🇲🇪', capital: 'Podgorica', coordinates: [19.3744, 42.7087] },
+  // Kosovo has no official ISO 3166-1 numeric code — it's outside UN
+  // membership — so it also has no id in the world-atlas topology. The map
+  // still matches it correctly by name (see MapView/GlobeView's
+  // `findCountry(numericId) || findCountry(name)` fallback); code3 and
+  // numericId here follow the "user-assigned" values (XKX / 926) that the
+  // World Bank and other systems use in practice.
+  { code: 'XK', code3: 'XKX', numericId: '926', name: 'Kosovo', continent: 'Europe', flag: '🇽🇰', capital: 'Pristina', coordinates: [20.9028, 42.6026] },
   { code: 'AL', code3: 'ALB', numericId: '008', name: 'Albania', continent: 'Europe', flag: '🇦🇱', capital: 'Tirana', coordinates: [20.1683, 41.1533] },
   { code: 'MK', code3: 'MKD', numericId: '807', name: 'North Macedonia', continent: 'Europe', flag: '🇲🇰', capital: 'Skopje', coordinates: [21.7453, 41.6086] },
   { code: 'UA', code3: 'UKR', numericId: '804', name: 'Ukraine', continent: 'Europe', flag: '🇺🇦', capital: 'Kyiv', coordinates: [31.1656, 48.3794] },
@@ -153,6 +160,67 @@ export const COUNTRIES_DATA: CountryInfo[] = [
   // Other major territories & North Eurasia
   { code: 'RU', code3: 'RUS', numericId: '643', name: 'Russia', continent: 'Europe', flag: '🇷🇺', capital: 'Moscow', coordinates: [105.3188, 61.524] },
   { code: 'GL', code3: 'GRL', numericId: '304', name: 'Greenland', continent: 'North America', flag: '🇬🇱', capital: 'Nuuk', coordinates: [-42.6043, 71.7069] },
+
+  // 48 UN member states that were simply absent from this list — found while
+  // chasing an unrelated globe rendering bug, by diffing every country the
+  // world-atlas topology knows against this file. Each is a real, widely
+  // recognized country, not a judgment call the way Kosovo or Taiwan are;
+  // without an entry here a country can't be searched, selected, or marked
+  // visited at all — clicking it silently does nothing, on both the 2D map
+  // and the 3D globe. Deliberately excluded: disputed or non-UN territories
+  // (Western Sahara, Somaliland, Northern Cyprus), dependencies (Puerto Rico,
+  // New Caledonia, French Southern and Antarctic Lands, the Falkland
+  // Islands), and Antarctica, which isn't a country to visit in this app's
+  // sense. Those are real gaps in a different, more judgment-laden way and
+  // are left for a deliberate decision rather than folded in here.
+  { code: 'DZ', code3: 'DZA', numericId: '012', name: 'Algeria', continent: 'Africa', flag: '🇩🇿', capital: 'Algiers', coordinates: [1.6596, 28.0339] },
+  { code: 'LY', code3: 'LBY', numericId: '434', name: 'Libya', continent: 'Africa', flag: '🇱🇾', capital: 'Tripoli', coordinates: [17.2283, 26.3351] },
+  { code: 'SD', code3: 'SDN', numericId: '729', name: 'Sudan', continent: 'Africa', flag: '🇸🇩', capital: 'Khartoum', coordinates: [30.2176, 12.8628] },
+  { code: 'SS', code3: 'SSD', numericId: '728', name: 'South Sudan', continent: 'Africa', flag: '🇸🇸', capital: 'Juba', coordinates: [31.307, 6.877] },
+  { code: 'TD', code3: 'TCD', numericId: '148', name: 'Chad', continent: 'Africa', flag: '🇹🇩', capital: "N'Djamena", coordinates: [18.7322, 15.4542] },
+  { code: 'ER', code3: 'ERI', numericId: '232', name: 'Eritrea', continent: 'Africa', flag: '🇪🇷', capital: 'Asmara', coordinates: [39.7823, 15.1794] },
+  { code: 'DJ', code3: 'DJI', numericId: '262', name: 'Djibouti', continent: 'Africa', flag: '🇩🇯', capital: 'Djibouti', coordinates: [42.5903, 11.8251] },
+  { code: 'SO', code3: 'SOM', numericId: '706', name: 'Somalia', continent: 'Africa', flag: '🇸🇴', capital: 'Mogadishu', coordinates: [46.1996, 5.1521] },
+  { code: 'ML', code3: 'MLI', numericId: '466', name: 'Mali', continent: 'Africa', flag: '🇲🇱', capital: 'Bamako', coordinates: [-3.9962, 17.5707] },
+  { code: 'MR', code3: 'MRT', numericId: '478', name: 'Mauritania', continent: 'Africa', flag: '🇲🇷', capital: 'Nouakchott', coordinates: [-10.9408, 21.0079] },
+  { code: 'NE', code3: 'NER', numericId: '562', name: 'Niger', continent: 'Africa', flag: '🇳🇪', capital: 'Niamey', coordinates: [8.0817, 17.6078] },
+  { code: 'BJ', code3: 'BEN', numericId: '204', name: 'Benin', continent: 'Africa', flag: '🇧🇯', capital: 'Porto-Novo', coordinates: [2.3158, 9.3077] },
+  { code: 'TG', code3: 'TGO', numericId: '768', name: 'Togo', continent: 'Africa', flag: '🇹🇬', capital: 'Lomé', coordinates: [0.8248, 8.6195] },
+  { code: 'CI', code3: 'CIV', numericId: '384', name: "Côte d'Ivoire", continent: 'Africa', flag: '🇨🇮', capital: 'Yamoussoukro', coordinates: [-5.5471, 7.54] },
+  { code: 'GN', code3: 'GIN', numericId: '324', name: 'Guinea', continent: 'Africa', flag: '🇬🇳', capital: 'Conakry', coordinates: [-9.6966, 9.9456] },
+  { code: 'GW', code3: 'GNB', numericId: '624', name: 'Guinea-Bissau', continent: 'Africa', flag: '🇬🇼', capital: 'Bissau', coordinates: [-15.1804, 11.8037] },
+  { code: 'LR', code3: 'LBR', numericId: '430', name: 'Liberia', continent: 'Africa', flag: '🇱🇷', capital: 'Monrovia', coordinates: [-9.4295, 6.4281] },
+  { code: 'SL', code3: 'SLE', numericId: '694', name: 'Sierra Leone', continent: 'Africa', flag: '🇸🇱', capital: 'Freetown', coordinates: [-11.7799, 8.4606] },
+  { code: 'BF', code3: 'BFA', numericId: '854', name: 'Burkina Faso', continent: 'Africa', flag: '🇧🇫', capital: 'Ouagadougou', coordinates: [-1.5616, 12.2383] },
+  { code: 'GM', code3: 'GMB', numericId: '270', name: 'Gambia', continent: 'Africa', flag: '🇬🇲', capital: 'Banjul', coordinates: [-15.3101, 13.4432] },
+  { code: 'CM', code3: 'CMR', numericId: '120', name: 'Cameroon', continent: 'Africa', flag: '🇨🇲', capital: 'Yaoundé', coordinates: [12.3547, 7.3697] },
+  { code: 'CF', code3: 'CAF', numericId: '140', name: 'Central African Republic', continent: 'Africa', flag: '🇨🇫', capital: 'Bangui', coordinates: [20.9394, 6.6111] },
+  { code: 'CG', code3: 'COG', numericId: '178', name: 'Congo', continent: 'Africa', flag: '🇨🇬', capital: 'Brazzaville', coordinates: [15.8277, -0.228] },
+  { code: 'CD', code3: 'COD', numericId: '180', name: 'DR Congo', continent: 'Africa', flag: '🇨🇩', capital: 'Kinshasa', coordinates: [21.7587, -4.0383] },
+  { code: 'GA', code3: 'GAB', numericId: '266', name: 'Gabon', continent: 'Africa', flag: '🇬🇦', capital: 'Libreville', coordinates: [11.6094, -0.8037] },
+  { code: 'GQ', code3: 'GNQ', numericId: '226', name: 'Equatorial Guinea', continent: 'Africa', flag: '🇬🇶', capital: 'Malabo', coordinates: [10.2679, 1.6508] },
+  { code: 'AO', code3: 'AGO', numericId: '024', name: 'Angola', continent: 'Africa', flag: '🇦🇴', capital: 'Luanda', coordinates: [17.8739, -11.2027] },
+  { code: 'ZM', code3: 'ZMB', numericId: '894', name: 'Zambia', continent: 'Africa', flag: '🇿🇲', capital: 'Lusaka', coordinates: [27.8493, -13.1339] },
+  { code: 'MW', code3: 'MWI', numericId: '454', name: 'Malawi', continent: 'Africa', flag: '🇲🇼', capital: 'Lilongwe', coordinates: [34.3015, -13.2543] },
+  { code: 'MZ', code3: 'MOZ', numericId: '508', name: 'Mozambique', continent: 'Africa', flag: '🇲🇿', capital: 'Maputo', coordinates: [35.5296, -18.6657] },
+  { code: 'ZW', code3: 'ZWE', numericId: '716', name: 'Zimbabwe', continent: 'Africa', flag: '🇿🇼', capital: 'Harare', coordinates: [29.1549, -19.0154] },
+  { code: 'BI', code3: 'BDI', numericId: '108', name: 'Burundi', continent: 'Africa', flag: '🇧🇮', capital: 'Gitega', coordinates: [29.9189, -3.3822] },
+  { code: 'SZ', code3: 'SWZ', numericId: '748', name: 'Eswatini', continent: 'Africa', flag: '🇸🇿', capital: 'Mbabane', coordinates: [31.4659, -26.5225] },
+  { code: 'LS', code3: 'LSO', numericId: '426', name: 'Lesotho', continent: 'Africa', flag: '🇱🇸', capital: 'Maseru', coordinates: [28.2336, -29.61] },
+  { code: 'BY', code3: 'BLR', numericId: '112', name: 'Belarus', continent: 'Europe', flag: '🇧🇾', capital: 'Minsk', coordinates: [27.9534, 53.7098] },
+  { code: 'KP', code3: 'PRK', numericId: '408', name: 'North Korea', continent: 'Asia', flag: '🇰🇵', capital: 'Pyongyang', coordinates: [127.5101, 40.3399] },
+  { code: 'BN', code3: 'BRN', numericId: '096', name: 'Brunei', continent: 'Asia', flag: '🇧🇳', capital: 'Bandar Seri Begawan', coordinates: [114.7277, 4.5353] },
+  { code: 'TL', code3: 'TLS', numericId: '626', name: 'Timor-Leste', continent: 'Asia', flag: '🇹🇱', capital: 'Dili', coordinates: [125.7275, -8.8742] },
+  { code: 'PG', code3: 'PNG', numericId: '598', name: 'Papua New Guinea', continent: 'Oceania', flag: '🇵🇬', capital: 'Port Moresby', coordinates: [147.1803, -6.315] },
+  { code: 'SB', code3: 'SLB', numericId: '090', name: 'Solomon Islands', continent: 'Oceania', flag: '🇸🇧', capital: 'Honiara', coordinates: [160.1562, -9.6457] },
+  { code: 'HT', code3: 'HTI', numericId: '332', name: 'Haiti', continent: 'North America', flag: '🇭🇹', capital: 'Port-au-Prince', coordinates: [-72.2852, 18.9712] },
+  { code: 'NI', code3: 'NIC', numericId: '558', name: 'Nicaragua', continent: 'North America', flag: '🇳🇮', capital: 'Managua', coordinates: [-85.2072, 12.8654] },
+  { code: 'HN', code3: 'HND', numericId: '340', name: 'Honduras', continent: 'North America', flag: '🇭🇳', capital: 'Tegucigalpa', coordinates: [-86.2419, 15.1999] },
+  { code: 'SV', code3: 'SLV', numericId: '222', name: 'El Salvador', continent: 'North America', flag: '🇸🇻', capital: 'San Salvador', coordinates: [-88.8965, 13.7942] },
+  { code: 'TT', code3: 'TTO', numericId: '780', name: 'Trinidad and Tobago', continent: 'North America', flag: '🇹🇹', capital: 'Port of Spain', coordinates: [-61.2225, 10.6918] },
+  { code: 'VE', code3: 'VEN', numericId: '862', name: 'Venezuela', continent: 'South America', flag: '🇻🇪', capital: 'Caracas', coordinates: [-66.5897, 6.4238] },
+  { code: 'GY', code3: 'GUY', numericId: '328', name: 'Guyana', continent: 'South America', flag: '🇬🇾', capital: 'Georgetown', coordinates: [-58.9302, 4.8604] },
+  { code: 'SR', code3: 'SUR', numericId: '740', name: 'Suriname', continent: 'South America', flag: '🇸🇷', capital: 'Paramaribo', coordinates: [-56.0278, 3.9193] },
 ];
 
 export const CONTINENTS: Continent[] = [

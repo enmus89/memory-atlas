@@ -33,6 +33,25 @@ import { COUNTRIES_DATA, findCountry } from '../data/countries';
 import { TravelStats } from '../utils/storage';
 import { MAP_THEMES } from '../utils/mapTheme';
 
+/**
+ * Case-insensitive country-code equality that only ever matches on two real
+ * codes.
+ *
+ * A country whose topojson feature has no match in COUNTRIES_DATA (the
+ * world-atlas 110m set includes several — Chad, Mali, Niger, Cameroon, both
+ * Congos, Zambia, Angola, Somalia and Somaliland among them — see the
+ * missing-country note below) carries `countryCode: undefined`. `a === b`
+ * with two `undefined` operands is `true`, so a plain `selectedCountry?.code
+ * === feat.countryCode` or `hoveredPolygon?.countryCode === feat.countryCode`
+ * treated *every* one of those countries as the selected or hovered one
+ * whenever nothing else was selected or hovered — which is always, most of
+ * the time — painting them in the selection/hover color permanently. This
+ * is what looked like a batch of countries already "selected" in blue.
+ */
+function codesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  return Boolean(a && b && a.toUpperCase() === b.toUpperCase());
+}
+
 interface GlobeViewProps {
   memories: TravelMemory[];
   stats: TravelStats;
@@ -160,7 +179,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
         const code = countryInfo?.code?.toUpperCase();
         const countryMemories = code ? memoriesByCountryCode.get(code) || [] : [];
         const isVisited = countryMemories.length > 0 || (code && stats.visitedCountryCodes.has(code));
-        const isHome = code && code === homeCode;
+        const isHome = codesMatch(code, homeCode);
 
         return {
           ...f,
@@ -203,7 +222,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
         flag: homeCountry.flag,
         isHome: true,
         isVisited: true,
-        isSelected: selectedCountry?.code?.toUpperCase() === homeCode,
+        isSelected: codesMatch(selectedCountry?.code, homeCode),
         size: 1.6,
         color: theme.homeStroke
       });
@@ -213,7 +232,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
     COUNTRIES_DATA.filter(c => smallCodes.includes(c.code.toUpperCase()) && c.code.toUpperCase() !== homeCode).forEach(c => {
       const code = c.code.toUpperCase();
       const isVisited = stats.visitedCountryCodes.has(code) || (memoriesByCountryCode.get(code)?.length ?? 0) > 0;
-      const isSelected = selectedCountry?.code?.toUpperCase() === code;
+      const isSelected = codesMatch(selectedCountry?.code, code);
 
       labels.push({
         lat: c.coordinates[1],
@@ -259,8 +278,8 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
 
       const [destLng, destLat] = destCountry.coordinates;
       const destMemories = memoriesByCountryCode.get(code) || [];
-      const isSelected = selectedCountry?.code?.toUpperCase() === code;
-      const isHovered = hoveredPolygon?.countryCode === code;
+      const isSelected = codesMatch(selectedCountry?.code, code);
+      const isHovered = codesMatch(hoveredPolygon?.countryCode, code);
       
       const distanceKm = calculateDistanceKm(homeLat, homeLng, destLat, destLng);
       const distanceMiles = Math.round(distanceKm * 0.621371);
@@ -456,7 +475,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
     return memoriesByCountryCode.get(selectedCountry.code.toUpperCase()) || [];
   }, [selectedCountry, memoriesByCountryCode]);
 
-  const isSelectedCountryHome = selectedCountry?.code?.toUpperCase() === homeCountry?.code?.toUpperCase();
+  const isSelectedCountryHome = codesMatch(selectedCountry?.code, homeCountry?.code);
 
   return (
     <div className={`relative w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#030712]' : 'bg-[#e0f2fe]'}`}>
@@ -573,7 +592,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
 
                 <div className={`max-h-52 overflow-y-auto space-y-0.5 pr-1 divide-y ${isDark ? 'divide-slate-800/50' : 'divide-slate-100'}`}>
                   {filteredHomeCountries.slice(0, 30).map(c => {
-                    const isSelected = c.code.toUpperCase() === homeCountry?.code?.toUpperCase();
+                    const isSelected = codesMatch(c.code, homeCountry?.code);
                     return (
                       <button
                         key={c.code}
@@ -707,7 +726,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
               }`}>
                 {searchResults.map(c => {
                   const isVisited = stats.visitedCountryCodes.has(c.code.toUpperCase());
-                  const isHome = c.code.toUpperCase() === homeCountry?.code?.toUpperCase();
+                  const isHome = codesMatch(c.code, homeCountry?.code);
                   return (
                     <button
                       key={c.code}
@@ -780,8 +799,8 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
           // Polygons (Country Boundaries - perfectly matched with 2D Map colors)
           polygonsData={countriesGeoJson}
           polygonCapColor={(feat: any) => {
-            const isSelected = selectedCountry?.code?.toUpperCase() === feat.countryCode;
-            const isHovered = hoveredPolygon?.countryCode === feat.countryCode;
+            const isSelected = codesMatch(selectedCountry?.code, feat.countryCode);
+            const isHovered = codesMatch(hoveredPolygon?.countryCode, feat.countryCode);
             const isHome = feat.isHome;
 
             if (isSelected) return theme.selectedFill;
@@ -791,7 +810,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
             return theme.unvisitedFill;
           }}
           polygonSideColor={(feat: any) => {
-            const isSelected = selectedCountry?.code?.toUpperCase() === feat.countryCode;
+            const isSelected = codesMatch(selectedCountry?.code, feat.countryCode);
             const isHome = feat.isHome;
             if (isSelected) return theme.selectedSide;
             if (isHome) return theme.homeSide;
@@ -799,7 +818,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
             return theme.unvisitedSide;
           }}
           polygonStrokeColor={(feat: any) => {
-            const isSelected = selectedCountry?.code?.toUpperCase() === feat.countryCode;
+            const isSelected = codesMatch(selectedCountry?.code, feat.countryCode);
             const isHome = feat.isHome;
             if (isSelected) return theme.selectedStroke;
             if (isHome) return theme.homeStroke;
@@ -807,8 +826,8 @@ export const GlobeView: React.FC<GlobeViewProps> = ({
             return theme.unvisitedStroke;
           }}
           polygonAltitude={(feat: any) => {
-            const isSelected = selectedCountry?.code?.toUpperCase() === feat.countryCode;
-            const isHovered = hoveredPolygon?.countryCode === feat.countryCode;
+            const isSelected = codesMatch(selectedCountry?.code, feat.countryCode);
+            const isHovered = codesMatch(hoveredPolygon?.countryCode, feat.countryCode);
             const isHome = feat.isHome;
             if (isSelected) return 0.07;
             if (isHovered) return 0.05;

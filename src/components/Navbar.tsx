@@ -88,20 +88,29 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-[#e9ecef] shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between min-h-[72px] sm:min-h-[80px] py-2.5 sm:py-3 gap-3">
-          
+      {/* `overflow-x-auto` is a deliberate safety net, not the primary fix: at
+          the center nav's five full-width tabs plus every optional action
+          button plus the quick-search box, the row's own natural width can
+          exceed even this max-w-7xl container on real desktop widths — that
+          combination doesn't newly appear here, it's what used to force the
+          brand name to invisibly collapse to nothing (or, before that, paint
+          over the buttons) below. Giving the brand a real width floor next
+          to it means this only ever engages in that same narrow, unusual
+          band, and there it scrolls instead of silently losing content. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-auto">
+        <div className="flex items-center justify-between min-h-[72px] sm:min-h-[80px] py-2.5 sm:py-3 gap-3 w-fit min-w-full">
+
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-9 flex-1">
-            <button 
+          <div className="flex items-center gap-2 sm:gap-3 min-w-[7rem] sm:min-w-[9rem] flex-1">
+            <button
               onClick={() => setActiveView('map')}
-              className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-none cursor-pointer min-w-9"
+              className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-none cursor-pointer min-w-0"
               id="brand-logo-btn"
             >
               <div className="w-9 h-9 sm:w-11 sm:h-11 bg-[#2563eb] rounded-xl flex items-center justify-center text-white shadow-sm group-hover:bg-[#1d4ed8] transition-colors flex-shrink-0">
                 <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 overflow-hidden">
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   <span className="text-base sm:text-xl font-bold tracking-tight text-[#1a1a1a] font-display truncate">
                     Memory Atlas
@@ -110,14 +119,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                     TRAVEL JOURNAL
                   </span>
                 </div>
-                {/* Prominent country visited stats counter */}
-                <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 mt-0.5 min-w-0">
-                  <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold text-[#1e293b] bg-blue-50 border border-blue-100 px-1.5 sm:px-2 py-0.5 rounded-md">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                    <span className="text-blue-700 font-bold">{stats.totalVisitedCountries} / 195</span>
-                    <span className="text-blue-600 font-normal">visited</span>
+                {/* Prominent country visited stats counter.
+                    Hidden again from lg up: that's exactly where the center
+                    nav (below) appears, and its Atlas Map tab already carries
+                    this same count as a badge — so past that width this row
+                    is pure redundancy competing with the nav and the action
+                    buttons for a header that's capped by max-w-7xl and
+                    doesn't have room for all three. `overflow-hidden` on
+                    both this row and the pill below is still load-bearing at
+                    the widths where it does show: a flex item allowed to
+                    shrink narrower than its content (min-w-0) still paints
+                    that content past its own box unless something clips it —
+                    and unclipped, this badge renders on top of the action
+                    buttons to the right, a separate flex item unaffected by
+                    this one's overflow. */}
+                <div className="hidden sm:flex lg:hidden items-center gap-1.5 sm:gap-2 mt-0.5 min-w-0 overflow-hidden">
+                  <span className="inline-flex items-center gap-1 sm:gap-1.5 min-w-0 text-[11px] sm:text-xs font-semibold text-[#1e293b] bg-blue-50 border border-blue-100 px-1.5 sm:px-2 py-0.5 rounded-md overflow-hidden">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse flex-shrink-0" />
+                    <span className="truncate">
+                      <span className="text-blue-700 font-bold">{stats.totalVisitedCountries} / 195</span>{' '}
+                      <span className="text-blue-600 font-normal">visited</span>
+                    </span>
                   </span>
-                  <span className="text-[11px] text-[#64748b] hidden md:inline">
+                  <span className="text-[11px] text-[#64748b] hidden md:inline flex-shrink-0">
                     • {stats.percentageOfWorld}% of world explored
                   </span>
                 </div>
